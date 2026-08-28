@@ -11,3 +11,6 @@ xcuserdata/
 .env.*
 *.mobileprovision
 *.p12
+
+# Wrangler local state
+.wrangler/
