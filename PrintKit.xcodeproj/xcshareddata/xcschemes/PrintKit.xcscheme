@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "3AD089AF3FEC36FF2B6154E4"
-               BuildableName = "PrintKit.app"
+			   BuildableName = "3DPrintKit.app"
                BlueprintName = "PrintKit"
                ReferencedContainer = "container:PrintKit.xcodeproj">
             </BuildableReference>
@@ -29,7 +29,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "E8AF0E21D8DDA3B1578032E8"
-               BuildableName = "PrintKitWidgets.appex"
+			   BuildableName = "3DPrintKitWidgets.appex"
                BlueprintName = "PrintKitWidgets"
                ReferencedContainer = "container:PrintKit.xcodeproj">
             </BuildableReference>
@@ -80,7 +80,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "3AD089AF3FEC36FF2B6154E4"
-            BuildableName = "PrintKit.app"
+			BuildableName = "3DPrintKit.app"
             BlueprintName = "PrintKit"
             ReferencedContainer = "container:PrintKit.xcodeproj">
          </BuildableReference>
@@ -97,7 +97,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "3AD089AF3FEC36FF2B6154E4"
-            BuildableName = "PrintKit.app"
+			BuildableName = "3DPrintKit.app"
             BlueprintName = "PrintKit"
             ReferencedContainer = "container:PrintKit.xcodeproj">
          </BuildableReference>

@@ -3,16 +3,16 @@ import SwiftUI
 /// Central navigation / deep-link router.
 ///
 /// Supported URLs (also used by App Intents and QR codes):
-///   printkit://home
-///   printkit://scan                -> NFC scan sheet
-///   printkit://add-spool
-///   printkit://spool/<uuid>        -> spool detail
-///   printkit://drying              -> start drying
-///   printkit://cost                -> cost calculator
-///   printkit://compare
-///   printkit://troubleshoot
-///   printkit://readiness
-///   printkit://maintenance
+///   3dprintkit://home
+///   3dprintkit://scan                -> NFC scan sheet
+///   3dprintkit://add-spool
+///   3dprintkit://spool/<uuid>        -> spool detail
+///   3dprintkit://drying              -> start drying
+///   3dprintkit://cost                -> cost calculator
+///   3dprintkit://compare
+///   3dprintkit://troubleshoot
+///   3dprintkit://readiness
+///   3dprintkit://maintenance
 enum AppTab: Int, Hashable {
     case home, spools, materials, tools, garage
 }
@@ -68,7 +68,7 @@ final class AppRouter {
     var deepLinkSpoolID: UUID?
 
     func handle(url: URL) {
-        guard url.scheme == "printkit" else { return }
+        guard ["3dprintkit", "printkit"].contains(url.scheme?.lowercased()) else { return }
         let host = url.host ?? ""
         let path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         switch host {
