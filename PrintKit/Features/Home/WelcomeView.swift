@@ -148,13 +148,20 @@ struct WelcomeView: View {
                 .accessibilityHint("Optional. Signing in syncs your workshop across devices.")
             }
 
-            Button("Continue Without an Account") {
+            // Frame and background live on the label so the whole control is
+            // tappable, not just the text.
+            Button {
                 onFinish()
+            } label: {
+                Text("Continue Without an Account")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .background(Color(.secondarySystemGroupedBackground),
+                                in: RoundedRectangle(cornerRadius: PK.Radius.card))
+                    .contentShape(RoundedRectangle(cornerRadius: PK.Radius.card))
             }
-            .font(.body.weight(.semibold))
-            .frame(maxWidth: .infinity, minHeight: 50)
-            .background(Color(.secondarySystemGroupedBackground),
-                        in: RoundedRectangle(cornerRadius: PK.Radius.card))
+            .buttonStyle(.plain)
             .disabled(isSigningIn)
 
             Text(normalizedURL.isEmpty
