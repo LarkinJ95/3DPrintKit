@@ -2,6 +2,11 @@
   "name": "printkit-api",
   "main": "backend/src/index.ts",
   "compatibility_date": "2026-08-28",
+  "assets": {
+    "directory": "./web",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
   "d1_databases": [
     {
       "binding": "DB",
