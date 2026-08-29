@@ -1,0 +1,22 @@
+{
+  "name": "printkit-api",
+  "main": "backend/src/index.ts",
+  "compatibility_date": "2026-08-28",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "printkit-db",
+      "database_id": "c6e966eb-5c29-4572-9ef5-3aad4871d334",
+      "migrations_dir": "backend/migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "PHOTOS",
+      "bucket_name": "printkit-photos"
+    }
+  ],
+  "vars": {
+    "APPLE_IOS_CLIENT_ID": "com.3dprintkit.app"
+  }
+}
