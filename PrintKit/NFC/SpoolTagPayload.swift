@@ -12,6 +12,7 @@ struct SpoolTagPayload: Codable, Equatable, Identifiable {
     var material: String?
     var product: String?
     var color: String?
+    var colorHex: String?
     var diameter: Double?
     var originalWeight: Double?
     var remainingWeight: Double?
@@ -29,6 +30,7 @@ struct SpoolTagPayload: Codable, Equatable, Identifiable {
         material = spool.materialID
         product = spool.productLine.isEmpty ? nil : spool.productLine
         color = spool.colorName.isEmpty ? nil : spool.colorName
+        colorHex = spool.colorHex
         diameter = spool.diameter
         originalWeight = spool.originalNetWeightG
         remainingWeight = spool.currentWeightG
@@ -36,7 +38,7 @@ struct SpoolTagPayload: Codable, Equatable, Identifiable {
 
     init(schema: String, version: Int, spoolID: UUID,
          manufacturer: String? = nil, material: String? = nil, product: String? = nil,
-         color: String? = nil, diameter: Double? = nil,
+         color: String? = nil, colorHex: String? = nil, diameter: Double? = nil,
          originalWeight: Double? = nil, remainingWeight: Double? = nil) {
         self.schema = schema
         self.version = version
@@ -45,6 +47,7 @@ struct SpoolTagPayload: Codable, Equatable, Identifiable {
         self.material = material
         self.product = product
         self.color = color
+        self.colorHex = colorHex
         self.diameter = diameter
         self.originalWeight = originalWeight
         self.remainingWeight = remainingWeight

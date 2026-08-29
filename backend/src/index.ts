@@ -22,7 +22,7 @@ function spoolSyncDTO(row: SyncRecordRow) {
     product_line: stringValue("product_line", stringValue("productLine")),
     material_id: stringValue("material_id", stringValue("materialID", stringValue("material", "pla"))),
     color_name: stringValue("color_name", stringValue("colorName", stringValue("color"))),
-    color_hex: stringValue("color_hex", stringValue("colorHex", "#808080")),
+    color_hex: stringValue("color_hex", stringValue("colorHex")) || null,
     diameter: numberValue(value.diameter, 1.75),
     original_weight_g: numberValue(value.original_weight_g, numberValue(value.originalNetWeightG, numberValue(value.originalWeight, 1000))),
     current_weight_g: numberValue(value.current_weight_g, numberValue(value.currentWeightG, numberValue(value.remainingWeight, 1000))),

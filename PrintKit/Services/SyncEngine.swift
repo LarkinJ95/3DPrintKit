@@ -120,7 +120,7 @@ final class SyncEngine {
         let product_line: String
         let material_id: String
         let color_name: String
-        let color_hex: String
+        let color_hex: String?
         let diameter: Double
         let original_weight_g: Double
         let current_weight_g: Double
@@ -193,7 +193,9 @@ final class SyncEngine {
                 existing.productLine = dto.product_line
                 existing.materialID = dto.material_id
                 existing.colorName = dto.color_name
-                existing.colorHex = dto.color_hex
+                if let colorHex = dto.color_hex, !colorHex.isEmpty {
+                    existing.colorHex = colorHex
+                }
                 existing.diameter = dto.diameter
                 existing.originalNetWeightG = dto.original_weight_g
                 existing.currentWeightG = dto.current_weight_g
@@ -207,7 +209,9 @@ final class SyncEngine {
                 spool.productLine = dto.product_line
                 spool.materialID = dto.material_id
                 spool.colorName = dto.color_name
-                spool.colorHex = dto.color_hex
+                if let colorHex = dto.color_hex, !colorHex.isEmpty {
+                    spool.colorHex = colorHex
+                }
                 spool.diameter = dto.diameter
                 spool.originalNetWeightG = dto.original_weight_g
                 spool.currentWeightG = dto.current_weight_g
