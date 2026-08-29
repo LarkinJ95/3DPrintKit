@@ -132,6 +132,9 @@ final class SyncEngine {
 
     @MainActor
     func syncNow(context: ModelContext) async {
+        // Access tokens are deliberately short-lived. Refresh before every
+        // cycle so downloads keep working after the initial sign-in window.
+        await AuthManager.shared.refreshSessionIfNeeded()
         refreshAvailability()
         guard status != .disabled else { return }
         status = .syncing

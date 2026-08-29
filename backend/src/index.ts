@@ -86,6 +86,20 @@ async function authApple(request: Request, env: Env) {
     return response;
   } catch (cause) { return error(cause instanceof Error ? cause.message : "Apple sign in failed.", 401, "invalid_apple_token"); }
 }
+async function refreshAuth(request: Request, env: Env) {
+  const input = await request.json() as { refresh_token?: string };
+  if (!input.refresh_token) return error("Missing refresh token.", 401, "invalid_refresh_token");
+  const tokenHash = await digest(input.refresh_token);
+  const session = await env.DB.prepare("SELECT user_id FROM refresh_sessions WHERE token_hash = ? AND expires_at > ?").bind(tokenHash, Math.floor(Date.now() / 1000)).first<{ user_id: string }>();
+  if (!session) return error("Refresh session expired. Please sign in again.", 401, "invalid_refresh_token");
+  // Rotate refresh tokens so a leaked older token cannot be replayed.
+  const refresh = crypto.randomUUID() + crypto.randomUUID();
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM refresh_sessions WHERE token_hash = ?").bind(tokenHash),
+    env.DB.prepare("INSERT INTO refresh_sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)").bind(await digest(refresh), session.user_id, Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 90)
+  ]);
+  return json({ access_token: await jwt({ sub: session.user_id, exp: Math.floor(Date.now() / 1000) + 900 }, env.JWT_SECRET), refresh_token: refresh });
+}
 async function sync(request: Request, env: Env, userID: string) {
   if (request.method === "GET") {
     const since = Number(new URL(request.url).searchParams.get("since") ?? 0);
@@ -119,6 +133,7 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
     }
   }
   if (path === "/api/v1/auth/apple" && request.method === "POST") return authApple(request, env);
+  if (path === "/api/v1/auth/refresh" && request.method === "POST") return refreshAuth(request, env);
   const userID = await userFrom(request, env); if (!userID) return error("Authentication required.", 401, "unauthorized");
   if (path === "/api/v1/account" && request.method === "GET") {
     const account = await env.DB.prepare("SELECT id, display_name, created_at FROM users WHERE id = ?").bind(userID).first<{ id: string; display_name: string; created_at: string }>();
