@@ -299,6 +299,12 @@ final class SyncEngine {
                 existing.colorName = dto.color_name
                 if let colorHex = dto.color_hex, !colorHex.isEmpty {
                     existing.colorHex = colorHex
+                } else if shouldBackfillColor(existing.colorHex) {
+                    // Records written by the original tag-oriented sync format
+                    // only contain a colour name. If this device has the
+                    // selected swatch, republish it once in the canonical
+                    // payload so other devices no longer receive gray.
+                    enqueueSpool(existing, kind: .update)
                 }
                 existing.diameter = dto.diameter
                 existing.originalNetWeightG = dto.original_weight_g
@@ -324,6 +330,15 @@ final class SyncEngine {
                 spool.isArchived = dto.archived
                 context.insert(spool)
             }
+    }
+
+    /// Avoid turning an unknown legacy colour into the model's placeholder
+    /// gray. Any deliberate non-default swatch can safely repair the server
+    /// record on the next push.
+    private func shouldBackfillColor(_ hex: String) -> Bool {
+        let trimmed = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.range(of: "^#[0-9A-Fa-f]{6}$", options: .regularExpression) != nil
+            && trimmed.caseInsensitiveCompare("#808080") != .orderedSame
     }
 
     private func applySnapshot(entity: String, payload: String, context: ModelContext) throws {

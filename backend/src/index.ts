@@ -22,7 +22,10 @@ function spoolSyncDTO(row: SyncRecordRow) {
     product_line: stringValue("product_line", stringValue("productLine")),
     material_id: stringValue("material_id", stringValue("materialID", stringValue("material", "pla"))),
     color_name: stringValue("color_name", stringValue("colorName", stringValue("color"))),
-    color_hex: stringValue("color_hex", stringValue("colorHex")) || null,
+    // A few early tag payloads used `color` for a hex value. Treat it as a
+    // swatch only when it is actually a CSS hex colour; names stay names.
+    color_hex: stringValue("color_hex", stringValue("colorHex"))
+      || (/^#[0-9a-f]{6}$/i.test(stringValue("color")) ? stringValue("color") : null),
     diameter: numberValue(value.diameter, 1.75),
     original_weight_g: numberValue(value.original_weight_g, numberValue(value.originalNetWeightG, numberValue(value.originalWeight, 1000))),
     current_weight_g: numberValue(value.current_weight_g, numberValue(value.currentWeightG, numberValue(value.remainingWeight, 1000))),
@@ -126,7 +129,21 @@ const ENTITY_NAMES = new Set(["spools", "printers", "profiles", "prints", "proje
 function decodeRecord(row: SyncRecordRow): Payload {
   try {
     const payload = JSON.parse(row.payload ?? "{}") as Payload;
-    return { ...payload, id: row.record_id, updated_at: row.updated_at, deleted_at: row.deleted ? row.updated_at : null };
+    // The first Cloud Sync release stored spools in the compact NFC/tag shape
+    // (`color`, `product`, `material`, ...). Keep those records readable by
+    // the full web editor while newer clients gradually republish the richer
+    // canonical payload, including the selected colour hex value.
+    const normalized = row.entity === "spools"
+      ? {
+        ...payload,
+        manufacturer: typeof payload.manufacturer === "string" ? payload.manufacturer : "",
+        product_line: typeof payload.product_line === "string" ? payload.product_line : typeof payload.product === "string" ? payload.product : "",
+        material_id: typeof payload.material_id === "string" ? payload.material_id : typeof payload.material === "string" ? payload.material : "pla",
+        color_name: typeof payload.color_name === "string" ? payload.color_name : typeof payload.colorName === "string" ? payload.colorName : typeof payload.color === "string" ? payload.color : "",
+        color_hex: typeof payload.color_hex === "string" ? payload.color_hex : typeof payload.colorHex === "string" ? payload.colorHex : "",
+      }
+      : payload;
+    return { ...normalized, id: row.record_id, updated_at: row.updated_at, deleted_at: row.deleted ? row.updated_at : null };
   } catch {
     return { id: row.record_id, updated_at: row.updated_at, deleted_at: row.deleted ? row.updated_at : null };
   }
