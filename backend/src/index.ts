@@ -1,3 +1,5 @@
+import { verifyAppleJws } from "./apple-jws";
+
 interface Env { DB: D1Database; PHOTOS: R2Bucket; JWT_SECRET: string; APPLE_IOS_CLIENT_ID: string; APPLE_WEB_CLIENT_ID: string; WEB_ORIGIN: string }
 type Payload = Record<string, unknown>;
 type SyncRecordRow = { entity: string; record_id: string; payload: string | null; deleted: number; version: number; updated_at: string };
@@ -54,6 +56,85 @@ async function userFrom(request: Request, env: Env): Promise<string | null> {
   if (!await crypto.subtle.verify("HMAC", key, ub64(parts[2]), encoder.encode(`${parts[0]}.${parts[1]}`))) return null;
   const claims = JSON.parse(new TextDecoder().decode(ub64(parts[1]))) as { sub?: string; exp?: number };
   return claims.sub && (claims.exp ?? 0) > Date.now() / 1000 ? claims.sub : null;
+}
+
+const PRO_CAPABILITIES = [
+  "canUseCloudSync", "canAccessWeb", "canWriteNFC", "canAddUnlimitedSpools",
+  "canAddUnlimitedPrinters", "canAddUnlimitedProjects", "canUseAdvancedAnalytics",
+  "canUsePrintReadiness", "canUsePersonalKnowledge", "canUseAdvancedExport",
+  "canUseAdvancedMaterialTools", "canUsePhotos", "canUseMaintenanceAndDrying",
+  "canUseHardwareInventory", "canUseRecords",
+];
+const PRO_STATUSES = new Set(["trial", "active", "grace", "billing_retry"]);
+const PRODUCT_IDS = new Set([
+  "com.3dprintkit.pro.monthly",
+  "com.3dprintkit.pro.annual",
+  "com.3dprintkit.pro.lifetime",
+]);
+type EntitlementRow = {
+  plan: string; entitlement_status: string; entitlement_source: string | null;
+  subscription_expires_at: string | null; lifetime_access: number; last_verified_at: string | null;
+};
+type AppleTransaction = {
+  transactionId: string; originalTransactionId: string; bundleId: string; productId: string;
+  type: string; purchaseDate: number; expiresDate?: number; environment: string;
+  appAccountToken?: string; revocationDate?: number; offerType?: number; signedDate?: number;
+};
+
+function entitlementState(row: EntitlementRow | null) {
+  const lifetime = Boolean(row?.lifetime_access);
+  const status = row?.entitlement_status ?? "none";
+  const expiresAt = row?.subscription_expires_at ?? null;
+  const stillValid = expiresAt === null || new Date(expiresAt).getTime() > Date.now();
+  const pro = lifetime || (PRO_STATUSES.has(status) && stillValid);
+  const effectiveStatus = !lifetime && PRO_STATUSES.has(status) && !stillValid ? "expired" : status;
+  return {
+    plan: pro ? "pro" : "free", status: effectiveStatus, source: row?.entitlement_source ?? null,
+    expires_at: lifetime ? null : expiresAt, lifetime,
+    capabilities: pro ? PRO_CAPABILITIES : [],
+    quotas: pro ? { spools: null, printers: null, projects: null } : { spools: 10, printers: 1, projects: 0 },
+    last_verified_at: row?.last_verified_at ?? null,
+  };
+}
+
+async function loadEntitlement(env: Env, userID: string) {
+  const row = await env.DB.prepare(
+    "SELECT plan, entitlement_status, entitlement_source, subscription_expires_at, lifetime_access, last_verified_at FROM users WHERE id = ?",
+  ).bind(userID).first<EntitlementRow>();
+  return entitlementState(row);
+}
+
+async function entitlementApi(request: Request, env: Env, userID: string): Promise<Response> {
+  if (request.method === "GET") return json(await loadEntitlement(env, userID));
+  const body = await request.json() as { signed_transaction?: unknown };
+  if (typeof body.signed_transaction !== "string" || body.signed_transaction.length < 32) {
+    return error("A signed transaction is required.", 400, "invalid_transaction");
+  }
+  let transaction: AppleTransaction;
+  try { transaction = await verifyAppleJws<AppleTransaction>(body.signed_transaction); }
+  catch (cause) { return error(cause instanceof Error ? cause.message : "The transaction could not be verified.", 400, "invalid_transaction"); }
+  if (transaction.bundleId !== "com.3dprintkit.app" || !PRODUCT_IDS.has(transaction.productId) || !transaction.originalTransactionId) {
+    return error("Transaction does not belong to 3dPrintKit.", 400, "invalid_transaction");
+  }
+  if (transaction.appAccountToken && transaction.appAccountToken.toLowerCase() !== userID.toLowerCase()) {
+    return error("Transaction belongs to a different account.", 403, "transaction_account_mismatch");
+  }
+  const existing = await env.DB.prepare("SELECT user_id, latest_signed_date FROM app_store_transactions WHERE original_transaction_id = ?")
+    .bind(transaction.originalTransactionId).first<{ user_id: string; latest_signed_date: string }>();
+  if (existing && existing.user_id !== userID) return error("Transaction belongs to a different account.", 403, "transaction_account_mismatch");
+  const signedAt = new Date(transaction.signedDate ?? transaction.purchaseDate).toISOString();
+  if (existing && new Date(existing.latest_signed_date).getTime() > new Date(signedAt).getTime()) return json(await loadEntitlement(env, userID));
+  const lifetime = transaction.productId === "com.3dprintkit.pro.lifetime" || transaction.type === "Non-Consumable";
+  const expiresAt = lifetime || transaction.expiresDate === undefined ? null : new Date(transaction.expiresDate).toISOString();
+  const status = transaction.revocationDate !== undefined ? "refunded" : lifetime ? "active" : transaction.expiresDate !== undefined && transaction.expiresDate <= Date.now() ? "expired" : transaction.offerType === 1 ? "trial" : "active";
+  const next = entitlementState({ plan: lifetime || PRO_STATUSES.has(status) ? "pro" : "free", entitlement_status: status, entitlement_source: lifetime ? "app_store_lifetime" : "app_store_subscription", subscription_expires_at: expiresAt, lifetime_access: lifetime ? 1 : 0, last_verified_at: now() });
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO app_store_transactions (original_transaction_id, user_id, product_id, kind, status, expires_at, environment, latest_signed_date, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(original_transaction_id) DO UPDATE SET user_id=excluded.user_id, product_id=excluded.product_id, kind=excluded.kind, status=excluded.status, expires_at=excluded.expires_at, environment=excluded.environment, latest_signed_date=excluded.latest_signed_date, updated_at=excluded.updated_at")
+      .bind(transaction.originalTransactionId, userID, transaction.productId, lifetime ? "lifetime" : transaction.productId.endsWith(".annual") ? "annual" : "monthly", status, expiresAt, transaction.environment, signedAt, now()),
+    env.DB.prepare("UPDATE users SET plan = ?, entitlement_status = ?, entitlement_source = ?, subscription_expires_at = ?, lifetime_access = ?, last_verified_at = ?, app_account_token = COALESCE(?, app_account_token) WHERE id = ?")
+      .bind(next.plan, status, next.source, expiresAt, lifetime ? 1 : 0, now(), transaction.appAccountToken?.toLowerCase() ?? null, userID),
+  ]);
+  return json(await loadEntitlement(env, userID));
 }
 async function appleClaims(identityToken: string, audience: string) {
   const [head, body, signature] = identityToken.split("."); if (!head || !body || !signature) throw new Error("Invalid Apple identity token.");
@@ -310,6 +391,8 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
     ]);
     const response = json({}); response.headers.append("Set-Cookie", "pk_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0"); return response;
   }
+  if (path === "/api/v1/entitlement" && (request.method === "GET" || request.method === "POST")) return entitlementApi(request, env, userID);
+  if (path === "/api/v1/entitlement/verify" && request.method === "POST") return entitlementApi(request, env, userID);
   if (path === "/api/v1/sync" && (request.method === "GET" || request.method === "POST")) return sync(request, env, userID);
   if (path === "/api/v1/ops/complete-print" && request.method === "POST") return completePrintApi(request, env, userID);
   if (path === "/api/v1/ops/transfer" && request.method === "POST") return transferApi(request, env, userID);
