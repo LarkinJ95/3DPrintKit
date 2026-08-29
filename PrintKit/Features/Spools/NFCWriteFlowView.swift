@@ -8,6 +8,7 @@ struct NFCWriteFlowView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @Query private var spools: [Spool]
+    @Query private var printers: [PrinterDevice]
 
     var prefilledSpool: Spool? = nil
 
@@ -17,6 +18,7 @@ struct NFCWriteFlowView: View {
 
     @State private var step: Step = .selectSpool
     @State private var spool: Spool?
+    @State private var targetPrinterID: UUID?
     @State private var nfc = NFCManager()
     @State private var verified = false
 
@@ -51,6 +53,25 @@ struct NFCWriteFlowView: View {
                             KeyValueRow(key: "Color", value: spool.colorName.isEmpty ? "—" : spool.colorName)
                             KeyValueRow(key: "Original", value: Format.grams(spool.originalNetWeightG))
                             KeyValueRow(key: "Remaining", value: Format.grams(spool.currentWeightG))
+                        }
+                        Section("Target Printer") {
+                            Picker("Write for", selection: $targetPrinterID) {
+                                Text("3DPrintKit only").tag(nil as UUID?)
+                                ForEach(printers) { printer in
+                                    Text(printer.displayName.isEmpty ? "Unnamed Printer" : printer.displayName)
+                                        .tag(Optional(printer.id))
+                                }
+                            }
+
+                            if let targetPrinter {
+                                Text(targetDescription(for: targetPrinter))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("Writes a standard 3DPrintKit NFC tag that the app can read on any supported iPhone.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                         Section {
                             let size = (try? SpoolTagPayload(spool: spool).encode().count) ?? 0
@@ -171,5 +192,20 @@ struct NFCWriteFlowView: View {
             }
         }
         nfc.begin(mode: .writeSpool(spool))
+    }
+
+    private var targetPrinter: PrinterDevice? {
+        guard let targetPrinterID else { return nil }
+        return printers.first { $0.id == targetPrinterID }
+    }
+
+    private func targetDescription(for printer: PrinterDevice) -> String {
+        let name = printer.displayName.isEmpty ? "This printer" : printer.displayName
+        switch printer.multiMaterial {
+        case .bambuAMS, .bambuAMSLite, .prusaMMU, .generic:
+            return "\(name) is selected. This writes the 3DPrintKit tag for app inventory; its AMS still needs its own compatible vendor tag or manual filament selection."
+        case .none:
+            return "\(name) is selected. This writes the 3DPrintKit tag for app inventory."
+        }
     }
 }
