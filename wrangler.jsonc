@@ -17,6 +17,7 @@
     }
   ],
   "vars": {
-    "APPLE_IOS_CLIENT_ID": "com.3dprintkit.app"
+    "APPLE_IOS_CLIENT_ID": "com.3dprintkit.app",
+    "APPLE_WEB_CLIENT_ID": "com.3dprintkit.web"
   }
 }

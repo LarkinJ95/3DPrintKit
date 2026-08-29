@@ -10,5 +10,5 @@
     "migrations_dir": "migrations"
   }],
   "r2_buckets": [{ "binding": "PHOTOS", "bucket_name": "printkit-photos" }],
-  "vars": { "APPLE_IOS_CLIENT_ID": "com.3dprintkit.app" }
+  "vars": { "APPLE_IOS_CLIENT_ID": "com.3dprintkit.app", "APPLE_WEB_CLIENT_ID": "com.3dprintkit.web" }
 }

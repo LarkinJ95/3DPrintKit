@@ -1,12 +1,14 @@
-interface Env { DB: D1Database; PHOTOS: R2Bucket; JWT_SECRET: string; APPLE_IOS_CLIENT_ID: string }
+interface Env { DB: D1Database; PHOTOS: R2Bucket; JWT_SECRET: string; APPLE_IOS_CLIENT_ID: string; APPLE_WEB_CLIENT_ID: string }
 type Payload = Record<string, unknown>;
 
 const encoder = new TextEncoder();
 const b64 = (data: Uint8Array) => btoa(String.fromCharCode(...data)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const ub64 = (value: string) => Uint8Array.from(atob(value.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
 const now = () => new Date().toISOString();
-const json = (data: unknown, status = 200) => Response.json({ success: status < 400, data: status < 400 ? data : null, error: status < 400 ? null : data, request_id: crypto.randomUUID(), server_time: now() }, { status, headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" } });
+const corsHeaders = { "Access-Control-Allow-Origin": "https://printkit-web.jlarkin-e6e.workers.dev", "Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS, DELETE" };
+const json = (data: unknown, status = 200) => Response.json({ success: status < 400, data: status < 400 ? data : null, error: status < 400 ? null : data, request_id: crypto.randomUUID(), server_time: now() }, { status, headers: corsHeaders });
 const error = (message: string, status = 400, code = "bad_request") => json({ code, message }, status);
+const cookie = (request: Request, name: string) => request.headers.get("Cookie")?.split(";").map(item => item.trim()).find(item => item.startsWith(`${name}=`))?.slice(name.length + 1) ?? null;
 async function digest(value: string) { return b64(new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(value)))); }
 async function jwt(payload: Payload, secret: string) {
   const head = b64(encoder.encode(JSON.stringify({ alg: "HS256", typ: "JWT" })));
@@ -16,7 +18,12 @@ async function jwt(payload: Payload, secret: string) {
 }
 async function userFrom(request: Request, env: Env): Promise<string | null> {
   const token = request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
-  if (!token) return null;
+  if (!token) {
+    const session = cookie(request, "pk_session");
+    if (!session) return null;
+    const row = await env.DB.prepare("SELECT user_id FROM web_sessions WHERE session_hash = ? AND expires_at > ?").bind(await digest(session), Math.floor(Date.now() / 1000)).first<{ user_id: string }>();
+    return row?.user_id ?? null;
+  }
   const parts = token.split("."); if (parts.length !== 3) return null;
   const key = await crypto.subtle.importKey("raw", encoder.encode(env.JWT_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["verify"]);
   if (!await crypto.subtle.verify("HMAC", key, ub64(parts[2]), encoder.encode(`${parts[0]}.${parts[1]}`))) return null;
@@ -35,17 +42,26 @@ async function appleClaims(identityToken: string, audience: string) {
   return claims;
 }
 async function authApple(request: Request, env: Env) {
-  const input = await request.json() as { identity_token?: string; display_name?: string; email?: string };
+  const input = await request.json() as { identity_token?: string; display_name?: string; email?: string; web?: boolean };
   if (!input.identity_token) return error("Missing Apple identity token.");
   try {
-    const claims = await appleClaims(input.identity_token, env.APPLE_IOS_CLIENT_ID);
+    const audience = input.web ? env.APPLE_WEB_CLIENT_ID : env.APPLE_IOS_CLIENT_ID;
+    if (!audience) return error("Web Sign in with Apple is not configured.", 503, "apple_not_configured");
+    const claims = await appleClaims(input.identity_token, audience);
     const existing = await env.DB.prepare("SELECT id, display_name FROM users WHERE apple_sub = ?").bind(claims.sub).first<{ id: string; display_name: string }>();
     const id = existing?.id ?? crypto.randomUUID(); const name = input.display_name?.trim() || existing?.display_name || "3DPrintKit User";
     if (existing) await env.DB.prepare("UPDATE users SET display_name = COALESCE(NULLIF(?, ''), display_name), email = COALESCE(?, email) WHERE id = ?").bind(input.display_name ?? "", input.email ?? null, id).run();
     else await env.DB.prepare("INSERT INTO users (id, apple_sub, display_name, email) VALUES (?, ?, ?, ?)").bind(id, claims.sub, name, input.email ?? null).run();
     const refresh = crypto.randomUUID() + crypto.randomUUID();
     await env.DB.prepare("INSERT INTO refresh_sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)").bind(await digest(refresh), id, Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 90).run();
-    return json({ access_token: await jwt({ sub: id, exp: Math.floor(Date.now() / 1000) + 900 }, env.JWT_SECRET), refresh_token: refresh, account_id: id, display_name: name });
+    const response = json({ access_token: await jwt({ sub: id, exp: Math.floor(Date.now() / 1000) + 900 }, env.JWT_SECRET), refresh_token: refresh, account_id: id, display_name: name });
+    if (input.web) {
+      const session = crypto.randomUUID() + crypto.randomUUID();
+      const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30;
+      await env.DB.prepare("INSERT INTO web_sessions (session_hash, user_id, expires_at) VALUES (?, ?, ?)").bind(await digest(session), id, expiresAt).run();
+      response.headers.append("Set-Cookie", `pk_session=${session}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${60 * 60 * 24 * 30}`);
+    }
+    return response;
   } catch (cause) { return error(cause instanceof Error ? cause.message : "Apple sign in failed.", 401, "invalid_apple_token"); }
 }
 async function sync(request: Request, env: Env, userID: string) {
@@ -69,7 +85,7 @@ async function sync(request: Request, env: Env, userID: string) {
   return json({ accepted, rejected });
 }
 export default { async fetch(request: Request, env: Env): Promise<Response> {
-  if (request.method === "OPTIONS") return new Response(null, { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" } });
+  if (request.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const path = new URL(request.url).pathname;
   if (path === "/" || path === "/health") {
     try {
@@ -82,6 +98,15 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
   }
   if (path === "/api/v1/auth/apple" && request.method === "POST") return authApple(request, env);
   const userID = await userFrom(request, env); if (!userID) return error("Authentication required.", 401, "unauthorized");
+  if (path === "/api/v1/account" && request.method === "GET") {
+    const account = await env.DB.prepare("SELECT id, display_name, created_at FROM users WHERE id = ?").bind(userID).first<{ id: string; display_name: string; created_at: string }>();
+    return account ? json({ account_id: account.id, display_name: account.display_name, created_at: account.created_at }) : error("Account not found.", 404, "not_found");
+  }
+  if (path === "/api/v1/auth/logout" && request.method === "POST") {
+    const session = cookie(request, "pk_session");
+    if (session) await env.DB.prepare("DELETE FROM web_sessions WHERE session_hash = ?").bind(await digest(session)).run();
+    const response = json({}); response.headers.append("Set-Cookie", "pk_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0"); return response;
+  }
   if (path === "/api/v1/sync" && (request.method === "GET" || request.method === "POST")) return sync(request, env, userID);
   return error("Route not found.", 404, "not_found");
 } } satisfies ExportedHandler<Env>;
