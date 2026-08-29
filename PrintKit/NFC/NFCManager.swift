@@ -2,11 +2,12 @@ import Foundation
 import CoreNFC
 import SwiftUI
 
-/// Core NFC manager for user-owned writable NDEF tags.
+/// Core NFC manager for user-owned writable NFC tags.
 ///
 /// PrintKit only reads and writes *your own* NDEF tags. It never attempts to
-/// defeat, emulate, clone, unlock, or modify proprietary encrypted
-/// manufacturer RFID/NFC systems.
+/// defeat, emulate, clone, unlock, or modify encrypted manufacturer RFID/NFC
+/// systems. The CANVAS option writes only ELEGOO's documented rewritable tag
+/// user memory; it does not copy tag identifiers or lock a tag.
 @Observable
 final class NFCManager: NSObject {
     enum ScanState: Equatable {
@@ -23,6 +24,7 @@ final class NFCManager: NSObject {
     enum Mode: Equatable {
         case scanSpool
         case writeSpool(Spool)
+        case writeElegooCanvas(Spool)
         case readUtility
         case writeText(String)
         case writeURL(String)
@@ -40,6 +42,7 @@ final class NFCManager: NSObject {
     var onWriteComplete: ((Bool) -> Void)?
 
     private var session: NFCNDEFReaderSession?
+    private var tagSession: NFCTagReaderSession?
     private var mode: Mode = .scanSpool
 
     static var isAvailable: Bool {
@@ -61,6 +64,19 @@ final class NFCManager: NSObject {
         }
 
         state = .ready
+        switch mode {
+        case .writeElegooCanvas, .scanSpool:
+            guard let session = NFCTagReaderSession(pollingOption: .iso14443, delegate: self, queue: .main) else {
+                state = .failed("This iPhone cannot start a raw NFC tag session.")
+                return
+            }
+            session.alertMessage = mode == .scanSpool ? "Hold the top of your iPhone near the spool tag." : "Hold near a blank, rewritable NTAG213 tag for ELEGOO CANVAS."
+            session.begin()
+            tagSession = session
+            return
+        default:
+            break
+        }
         // Keep Core NFC callbacks on the main queue. The manager is observed
         // directly by SwiftUI, so a background callback can otherwise leave
         // the UI showing a stale state (for example, "Preparing…" after a tag
@@ -71,6 +87,8 @@ final class NFCManager: NSObject {
             session.alertMessage = "Hold the top of your iPhone near the spool tag."
         case .writeSpool:
             session.alertMessage = "Hold near the writable tag to write spool data."
+        case .writeElegooCanvas:
+            break
         case .readUtility:
             session.alertMessage = "Hold near any NFC tag to inspect it."
         case .writeText, .writeURL:
@@ -87,6 +105,8 @@ final class NFCManager: NSObject {
     func cancel() {
         session?.invalidate()
         session = nil
+        tagSession?.invalidate()
+        tagSession = nil
         state = .idle
     }
 
@@ -111,6 +131,8 @@ final class NFCManager: NSObject {
                     return
                 }
                 self.writeSpool(spool, to: tag, session: session, capacity: capacity)
+            case .writeElegooCanvas:
+                return
             case .writeText(let text):
                 guard let payload = NFCNDEFPayload.wellKnownTypeTextPayload(
                     string: text,
@@ -286,6 +308,55 @@ final class NFCManager: NSObject {
         session.alertMessage = message
         session.invalidate()
     }
+
+    private func fail(_ session: NFCTagReaderSession, _ message: String) {
+        state = .failed(message)
+        lastError = message
+        Haptics.error()
+        session.alertMessage = message
+        session.invalidate()
+    }
+
+    private func writeCanvas(_ spool: Spool, to tag: NFCMiFareTag, session: NFCTagReaderSession) {
+        let canvasTag = ElegooCanvasTag(spool: spool)
+        state = .writing
+        writeCanvas(canvasTag.writes, at: 0, tag: tag, canvasTag: canvasTag, session: session)
+    }
+
+    private func writeCanvas(_ writes: [(page: UInt8, bytes: Data)], at index: Int, tag: NFCMiFareTag, canvasTag: ElegooCanvasTag, session: NFCTagReaderSession) {
+        guard index < writes.count else {
+            state = .verifying
+            tag.sendMiFareCommand(commandPacket: Data([0x30, 0x10])) { [weak self] result in
+                guard let self else { return }
+                guard case let .success(response) = result else {
+                    if case let .failure(error) = result { self.fail(session, "Write completed but CANVAS verification failed: \(error.localizedDescription)") }
+                    return
+                }
+                guard response.prefix(16) == canvasTag.verificationBytes else {
+                    self.fail(session, "Verification failed: this tag did not retain the CANVAS data.")
+                    self.onWriteComplete?(false)
+                    return
+                }
+                self.state = .complete
+                Haptics.success()
+                session.alertMessage = "ELEGOO CANVAS tag written and verified."
+                session.invalidate()
+                self.onWriteComplete?(true)
+            }
+            return
+        }
+        let write = writes[index]
+        var command = Data([0xA2, write.page])
+        command.append(write.bytes)
+        tag.sendMiFareCommand(commandPacket: command) { [weak self] result in
+            guard let self else { return }
+            guard case .success = result else {
+                if case let .failure(error) = result { self.fail(session, "Could not write CANVAS page \(write.page): \(error.localizedDescription)") }
+                return
+            }
+            self.writeCanvas(writes, at: index + 1, tag: tag, canvasTag: canvasTag, session: session)
+        }
+    }
 }
 
 extension NFCManager: NFCNDEFReaderSessionDelegate {
@@ -326,6 +397,90 @@ extension NFCManager: NFCNDEFReaderSessionDelegate {
         if state != .complete && state != .idle {
             lastError = error.localizedDescription
             state = .failed(error.localizedDescription)
+        }
+    }
+}
+
+extension NFCManager: NFCTagReaderSessionDelegate {
+    func tagReaderSessionDidBecomeActive(_ session: NFCTagReaderSession) {
+        state = .ready
+    }
+
+    func tagReaderSession(_ session: NFCTagReaderSession, didDetect tags: [NFCTag]) {
+        guard let first = tags.first else { return }
+        if case .scanSpool = mode {
+            guard case let .miFare(miFareTag) = first else {
+                fail(session, "This tag is not supported by the spool scanner.")
+                return
+            }
+            session.connect(to: first) { [weak self] error in
+                guard let self else { return }
+                if let error { self.fail(session, error.localizedDescription); return }
+                self.state = .reading
+                miFareTag.readNDEF { [weak self] message, _ in
+                    guard let self else { return }
+                    if let payload = message?.records.compactMap({ SpoolTagPayload.decode($0.payload) }).first {
+                        self.detectedPayload = payload
+                        self.state = .complete
+                        Haptics.success()
+                        session.alertMessage = "Spool tag found."
+                        session.invalidate()
+                        self.onSpoolScanned?(payload)
+                    } else {
+                        self.readCanvas(miFareTag, session: session)
+                    }
+                }
+            }
+            return
+        }
+        guard case let .writeElegooCanvas(spool) = mode else { return }
+        guard case let .miFare(miFareTag) = first else {
+            fail(session, "This is not an NTAG213-compatible tag. Use a blank, rewritable NTAG213 tag.")
+            return
+        }
+        guard miFareTag.mifareFamily == .ultralight else {
+            fail(session, "This is not an NTAG213-compatible tag. Use a blank, rewritable NTAG213 tag.")
+            return
+        }
+        session.connect(to: first) { [weak self] error in
+            guard let self else { return }
+            if let error { self.fail(session, error.localizedDescription); return }
+            self.state = .detected
+            self.writeCanvas(spool, to: miFareTag, session: session)
+        }
+    }
+
+    func tagReaderSession(_ session: NFCTagReaderSession, didInvalidateWithError error: Error) {
+        let code = (error as NSError).code
+        if code == NFCReaderError.readerSessionInvalidationErrorUserCanceled.rawValue {
+            if state != .complete && state != .idle { state = .failed("The NFC scan ended before the CANVAS tag was written.") }
+            return
+        }
+        if state != .complete && state != .idle {
+            lastError = error.localizedDescription
+            state = .failed(error.localizedDescription)
+        }
+    }
+
+    private func readCanvas(_ tag: NFCMiFareTag, session: NFCTagReaderSession) {
+        tag.sendMiFareCommand(commandPacket: Data([0x30, 0x10])) { [weak self] first in
+            guard let self, case let .success(primary) = first else { return }
+            tag.sendMiFareCommand(commandPacket: Data([0x30, 0x14])) { [weak self] second in
+                guard let self, case let .success(details) = second else { self?.fail(session, "Could not read this CANVAS tag."); return }
+                tag.sendMiFareCommand(commandPacket: Data([0x30, 0x17])) { [weak self] third in
+                    guard let self, case let .success(dimensions) = third,
+                          let payload = ElegooCanvasTag.payload(identifier: tag.identifier, primary: primary, details: details, dimensions: dimensions) else {
+                        self?.fail(session, "This is not a 3DPrintKit or ELEGOO CANVAS spool tag.")
+                        return
+                    }
+                    self.detectedPayload = payload
+                    self.state = .complete
+                    Haptics.success()
+                    session.alertMessage = "ELEGOO CANVAS spool tag found."
+                    session.invalidate()
+                    self.onSpoolScanned?(payload)
+                }
+            }
         }
     }
 }

@@ -66,6 +66,7 @@
 		C629690F27017C3251A49076 /* NFCScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BDBD1369E7EDDDB09AD86F9 /* NFCScanView.swift */; };
 		C79B773E5B00E33F69EEAB3B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AA4AA0474DB868B9BE5450D /* SettingsView.swift */; };
 		C7D85D7E4C93234088FF123C /* NFCManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DDA19A61177E35E26C30BE4 /* NFCManager.swift */; };
+		A4C3E1200000000000000001 /* ElegooCanvasTag.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4C3E1200000000000000002 /* ElegooCanvasTag.swift */; };
 		CAED659F34118CF1FA2FB83F /* MaterialAssistantView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B83D07C9493E654436ADF07 /* MaterialAssistantView.swift */; };
 		D20B96C00BEB112D82239CF3 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FBA9F5DC2E38CDE99DB2176 /* NotificationService.swift */; };
 		D359B0E5DE26FB53B44840E3 /* LabelGeneratorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E45977734FAE5453DC68A22D /* LabelGeneratorView.swift */; };
@@ -123,6 +124,7 @@
 		0A1F3C7B4D5E6F8091A2B3C4 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
 		0ABC3EEAE1493CC50B6F9ADC /* SyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncEngine.swift; sourceTree = "<group>"; };
 		0DDA19A61177E35E26C30BE4 /* NFCManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NFCManager.swift; sourceTree = "<group>"; };
+		A4C3E1200000000000000002 /* ElegooCanvasTag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElegooCanvasTag.swift; sourceTree = "<group>"; };
 		0EAD31D671669851C9A9DEF2 /* GuidanceViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidanceViews.swift; sourceTree = "<group>"; };
 		1454FAE5C99DFCB84A3F5652 /* CostEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CostEngine.swift; sourceTree = "<group>"; };
 		146EB0005D693DA4C86A212F /* ToolsHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolsHomeView.swift; sourceTree = "<group>"; };
@@ -242,6 +244,7 @@
 			isa = PBXGroup;
 			children = (
 				0DDA19A61177E35E26C30BE4 /* NFCManager.swift */,
+				A4C3E1200000000000000002 /* ElegooCanvasTag.swift */,
 				4292CC930276716DA7FBE2D9 /* SpoolTagPayload.swift */,
 			);
 			path = NFC;
@@ -642,6 +645,7 @@
 				E4188BA3EF8909BA1D11F2C6 /* PrinterModels.swift in Sources */,
 				D777C0381137F5363ED9D08D /* Spool.swift in Sources */,
 				C7D85D7E4C93234088FF123C /* NFCManager.swift in Sources */,
+				A4C3E1200000000000000001 /* ElegooCanvasTag.swift in Sources */,
 				2BBE16604C52B395982910EF /* SpoolTagPayload.swift in Sources */,
 				9F83F1FCF4A8E3E75EE94654 /* QRCode.swift in Sources */,
 				0387DCAA503D2F29C0173CAE /* QRScannerView.swift in Sources */,

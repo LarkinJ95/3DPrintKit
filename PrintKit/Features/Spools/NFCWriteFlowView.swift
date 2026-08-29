@@ -19,6 +19,7 @@ struct NFCWriteFlowView: View {
     @State private var step: Step = .selectSpool
     @State private var spool: Spool?
     @State private var targetPrinterID: UUID?
+    @State private var canvasFormat = false
     @State private var nfc = NFCManager()
     @State private var verified = false
 
@@ -72,13 +73,26 @@ struct NFCWriteFlowView: View {
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
+                            if isElegooCanvasTarget {
+                                Toggle("ELEGOO CANVAS-compatible tag", isOn: $canvasFormat)
+                                Text("Writes CANVAS's raw NTAG213 user-memory format. Use a blank or rewritable NTAG213 tag only. This replaces its existing user-memory contents and cannot also store the 3DPrintKit NFC record.")
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                            }
                         }
                         Section {
-                            let size = (try? SpoolTagPayload(spool: spool).encode().count) ?? 0
-                            KeyValueRow(key: "Payload size", value: "\(size) bytes")
-                            Text("Requires a writable NDEF tag (NTAG213 or larger recommended). The tag is written, then read back and verified.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            if canvasFormat {
+                                KeyValueRow(key: "Format", value: "ELEGOO CANVAS · NTAG213")
+                                Text("CANVAS format uses a blank or rewritable NTAG213 tag and is read back after writing. It is not written to factory or locked tags.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                let size = (try? SpoolTagPayload(spool: spool).encode().count) ?? 0
+                                KeyValueRow(key: "Payload size", value: "\(size) bytes")
+                                Text("Requires a writable NDEF tag (NTAG213 or larger recommended). The tag is written, then read back and verified.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                     .navigationTitle("Review Tag Data")
@@ -191,7 +205,7 @@ struct NFCWriteFlowView: View {
                 step = .done
             }
         }
-        nfc.begin(mode: .writeSpool(spool))
+        nfc.begin(mode: canvasFormat ? .writeElegooCanvas(spool) : .writeSpool(spool))
     }
 
     private var targetPrinter: PrinterDevice? {
@@ -207,5 +221,11 @@ struct NFCWriteFlowView: View {
         case .none:
             return "\(name) is selected. This writes the 3DPrintKit tag for app inventory."
         }
+    }
+
+    private var isElegooCanvasTarget: Bool {
+        guard let targetPrinter else { return false }
+        let identity = "\(targetPrinter.manufacturer) \(targetPrinter.model) \(targetPrinter.displayName)".lowercased()
+        return identity.contains("elegoo") && identity.contains("canvas")
     }
 }
