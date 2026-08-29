@@ -1,5 +1,6 @@
 interface Env { DB: D1Database; PHOTOS: R2Bucket; JWT_SECRET: string; APPLE_IOS_CLIENT_ID: string; APPLE_WEB_CLIENT_ID: string }
 type Payload = Record<string, unknown>;
+type SyncRecordRow = { entity: string; record_id: string; payload: string | null; deleted: number; version: number; updated_at: string };
 
 const encoder = new TextEncoder();
 const b64 = (data: Uint8Array) => btoa(String.fromCharCode(...data)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -10,6 +11,27 @@ const json = (data: unknown, status = 200) => Response.json({ success: status < 
 const error = (message: string, status = 400, code = "bad_request") => json({ code, message }, status);
 const cookie = (request: Request, name: string) => request.headers.get("Cookie")?.split(";").map(item => item.trim()).find(item => item.startsWith(`${name}=`))?.slice(name.length + 1) ?? null;
 async function digest(value: string) { return b64(new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(value)))); }
+const numberValue = (value: unknown, fallback: number) => typeof value === "number" && Number.isFinite(value) ? value : fallback;
+function spoolSyncDTO(row: SyncRecordRow) {
+  let value: Record<string, unknown> = {};
+  try { value = JSON.parse(row.payload ?? "{}") as Record<string, unknown>; } catch { /* malformed legacy records become safe defaults */ }
+  const stringValue = (key: string, fallback = "") => typeof value[key] === "string" ? value[key] as string : fallback;
+  return {
+    id: stringValue("id", stringValue("spoolID", row.record_id)),
+    manufacturer: stringValue("manufacturer"),
+    product_line: stringValue("product_line", stringValue("productLine")),
+    material_id: stringValue("material_id", stringValue("materialID", stringValue("material", "pla"))),
+    color_name: stringValue("color_name", stringValue("colorName", stringValue("color"))),
+    color_hex: stringValue("color_hex", stringValue("colorHex", "#808080")),
+    diameter: numberValue(value.diameter, 1.75),
+    original_weight_g: numberValue(value.original_weight_g, numberValue(value.originalNetWeightG, numberValue(value.originalWeight, 1000))),
+    current_weight_g: numberValue(value.current_weight_g, numberValue(value.currentWeightG, numberValue(value.remainingWeight, 1000))),
+    empty_spool_weight_g: numberValue(value.empty_spool_weight_g, numberValue(value.emptySpoolWeightG, 140)),
+    notes: stringValue("notes"),
+    archived: value.archived === true || value.isArchived === true,
+    updated_at: stringValue("updated_at", row.updated_at)
+  };
+}
 async function jwt(payload: Payload, secret: string) {
   const head = b64(encoder.encode(JSON.stringify({ alg: "HS256", typ: "JWT" })));
   const body = b64(encoder.encode(JSON.stringify(payload)));
@@ -67,9 +89,9 @@ async function authApple(request: Request, env: Env) {
 async function sync(request: Request, env: Env, userID: string) {
   if (request.method === "GET") {
     const since = Number(new URL(request.url).searchParams.get("since") ?? 0);
-    const rows = await env.DB.prepare("SELECT entity, record_id, payload, deleted, version FROM sync_records WHERE user_id = ? AND version > ? ORDER BY version ASC").bind(userID, since).all<{ entity: string; record_id: string; payload: string | null; deleted: number; version: number }>();
+    const rows = await env.DB.prepare("SELECT entity, record_id, payload, deleted, version, updated_at FROM sync_records WHERE user_id = ? AND version > ? ORDER BY version ASC").bind(userID, since).all<SyncRecordRow>();
     const max = rows.results.reduce((value, row) => Math.max(value, row.version), since);
-    return json({ cursor: String(max), server_time: now(), spools: rows.results.filter(row => row.entity === "spools" && !row.deleted).map(row => JSON.parse(row.payload ?? "{}")), deleted: rows.results.filter(row => row.deleted).map(row => ({ entity: row.entity, record_id: row.record_id })) });
+    return json({ cursor: String(max), server_time: now(), spools: rows.results.filter(row => row.entity === "spools" && !row.deleted).map(spoolSyncDTO), deleted: rows.results.filter(row => row.deleted).map(row => ({ entity: row.entity, record_id: row.record_id })) });
   }
   const input = await request.json() as { operations?: Array<{ id: string; kind: string; entity: string; record_id: string; payload?: string | null }> };
   const accepted: string[] = [], rejected: { id: string; reason: string }[] = [];
