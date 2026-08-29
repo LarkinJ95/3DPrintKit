@@ -225,7 +225,9 @@ struct NFCWriteFlowView: View {
 
     private var isElegooCanvasTarget: Bool {
         guard let targetPrinter else { return false }
-        let identity = "\(targetPrinter.manufacturer) \(targetPrinter.model) \(targetPrinter.displayName)".lowercased()
-        return identity.contains("elegoo") && identity.contains("canvas")
+        // A CANVAS unit may be saved by its printer model (for example,
+        // "Centauri Carbon 2") rather than the word "CANVAS". Manufacturer
+        // is the reliable information users enter for this printer family.
+        return targetPrinter.manufacturer.localizedCaseInsensitiveContains("elegoo")
     }
 }
