@@ -1,6 +1,22 @@
 import SwiftUI
 import SwiftData
 import AuthenticationServices
+import UniformTypeIdentifiers
+
+private struct ExportDocument: FileDocument {
+    static var readableContentTypes: [UTType] = [.json, .commaSeparatedText]
+    let data: Data
+
+    init(data: Data) { self.data = data }
+
+    init(configuration: ReadConfiguration) throws {
+        data = configuration.file.regularFileContents ?? Data()
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
+    }
+}
 
 struct SettingsView: View {
     @Environment(AppSettings.self) private var settings
@@ -10,8 +26,10 @@ struct SettingsView: View {
     @State private var syncEngine = SyncEngine.shared
     @State private var auth = AuthManager.shared
 
-    @State private var exportJSONData: Data?
-    @State private var exportCSVData: Data?
+    @State private var exportJSONDocument: ExportDocument?
+    @State private var exportCSVDocument: ExportDocument?
+    @State private var showJSONExporter = false
+    @State private var showCSVExporter = false
     @State private var showImportPicker = false
     @State private var importMessage: String?
     @State private var showEraseConfirm = false
@@ -105,13 +123,7 @@ struct SettingsView: View {
                     Text("1.75 mm").tag(1.75)
                     Text("2.85 mm").tag(2.85)
                 }
-                HStack {
-                    Text("Default spool size")
-                    Spacer()
-                    TextField("1000", value: $settings.defaultSpoolGrams, format: .number)
-                        .keyboardType(.numberPad).multilineTextAlignment(.trailing).frame(width: 80)
-                    Text("g").foregroundStyle(.secondary)
-                }
+                PKNumericField(label: "Default spool size", value: $settings.defaultSpoolGrams, unit: "g", placeholder: "1000", keyboard: .numberPad)
                 VStack(alignment: .leading) {
                     HStack {
                         Text("Reserve")
@@ -123,13 +135,7 @@ struct SettingsView: View {
                     Text("Print estimators keep this much of every spool in reserve.")
                         .font(.caption2).foregroundStyle(.tertiary)
                 }
-                HStack {
-                    Text("Low-spool threshold")
-                    Spacer()
-                    TextField("150", value: $settings.lowSpoolThresholdGrams, format: .number)
-                        .keyboardType(.numberPad).multilineTextAlignment(.trailing).frame(width: 80)
-                    Text("g").foregroundStyle(.secondary)
-                }
+                PKNumericField(label: "Low-spool threshold", value: $settings.lowSpoolThresholdGrams, unit: "g", placeholder: "150", keyboard: .numberPad)
             }
 
             // MARK: Notifications
@@ -141,12 +147,22 @@ struct SettingsView: View {
             // MARK: Data
             Section {
                 Button {
-                    exportJSONData = try? DataPorting.exportJSON(context: context)
+                    do {
+                        exportJSONDocument = ExportDocument(data: try DataPorting.exportJSON(context: context))
+                        showJSONExporter = true
+                    } catch {
+                        importMessage = "Could not create the JSON backup: \(error.localizedDescription)"
+                    }
                 } label: {
                     Label("Export Full Backup (JSON)", systemImage: "square.and.arrow.up")
                 }
                 Button {
-                    exportCSVData = try? DataPorting.exportSpoolsCSV(context: context)
+                    do {
+                        exportCSVDocument = ExportDocument(data: try DataPorting.exportSpoolsCSV(context: context))
+                        showCSVExporter = true
+                    } catch {
+                        importMessage = "Could not create the CSV export: \(error.localizedDescription)"
+                    }
                 } label: {
                     Label("Export Spool Inventory (CSV)", systemImage: "tablecells")
                 }
@@ -182,18 +198,22 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Settings")
-        // Exporters
-        .sheet(item: exportJSONBinding) { item in
-            ShareLink(item: item.data, preview: SharePreview("3DPrintKit Backup", image: Image(systemName: "square.and.arrow.up"))) {
-                Label("Share Backup", systemImage: "square.and.arrow.up")
+        .pkDismissableKeyboard()
+        .fileExporter(isPresented: $showJSONExporter,
+                      document: exportJSONDocument,
+                      contentType: .json,
+                      defaultFilename: "3DPrintKit-Backup") { result in
+            if case .failure(let error) = result {
+                importMessage = "Could not save the JSON backup: \(error.localizedDescription)"
             }
-            .presentationDetents([.medium])
         }
-        .sheet(item: exportCSVBinding) { item in
-            ShareLink(item: item.data, preview: SharePreview("Spool Inventory CSV", image: Image(systemName: "tablecells"))) {
-                Label("Share CSV", systemImage: "square.and.arrow.up")
+        .fileExporter(isPresented: $showCSVExporter,
+                      document: exportCSVDocument,
+                      contentType: .commaSeparatedText,
+                      defaultFilename: "3DPrintKit-Spool-Inventory") { result in
+            if case .failure(let error) = result {
+                importMessage = "Could not save the CSV export: \(error.localizedDescription)"
             }
-            .presentationDetents([.medium])
         }
         .fileImporter(isPresented: $showImportPicker, allowedContentTypes: [.json]) { result in
             handleImport(result)
@@ -216,25 +236,6 @@ struct SettingsView: View {
     }
 
     // MARK: - Helpers
-
-    private struct ShareItem: Identifiable {
-        let id = UUID()
-        let data: Data
-    }
-
-    private var exportJSONBinding: Binding<ShareItem?> {
-        Binding(
-            get: { exportJSONData.map { ShareItem(data: $0) } },
-            set: { if $0 == nil { exportJSONData = nil } }
-        )
-    }
-
-    private var exportCSVBinding: Binding<ShareItem?> {
-        Binding(
-            get: { exportCSVData.map { ShareItem(data: $0) } },
-            set: { if $0 == nil { exportCSVData = nil } }
-        )
-    }
 
     private var syncLabel: String {
         switch syncEngine.status {

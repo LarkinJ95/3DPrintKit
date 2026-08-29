@@ -61,7 +61,11 @@ final class NFCManager: NSObject {
         }
 
         state = .ready
-        let session = NFCNDEFReaderSession(delegate: self, queue: nil, invalidateAfterFirstRead: false)
+        // Keep Core NFC callbacks on the main queue. The manager is observed
+        // directly by SwiftUI, so a background callback can otherwise leave
+        // the UI showing a stale state (for example, "Preparing…" after a tag
+        // has already been detected).
+        let session = NFCNDEFReaderSession(delegate: self, queue: .main, invalidateAfterFirstRead: false)
         switch mode {
         case .scanSpool:
             session.alertMessage = "Hold the top of your iPhone near the spool tag."
@@ -311,7 +315,9 @@ extension NFCManager: NFCNDEFReaderSessionDelegate {
         let nsError = error as NSError
         // Code 200/201 = user canceled or session closed after success; don't flag as failure.
         if nsError.code == NFCReaderError.readerSessionInvalidationErrorUserCanceled.rawValue {
-            if state != .complete { state = .idle }
+            if state != .complete && state != .idle {
+                state = .failed("The NFC scan ended before a readable 3DPrintKit tag was found. Tap Try Again and hold the top of the iPhone against the tag.")
+            }
             return
         }
         if nsError.code == NFCReaderError.readerSessionInvalidationErrorSessionTerminatedUnexpectedly.rawValue, state == .complete {

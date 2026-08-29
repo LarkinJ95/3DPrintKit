@@ -27,7 +27,7 @@
 		3883262072A73399593D94EF /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CDE8F08DBCB22E0EFE9FAF1 /* AuthManager.swift */; };
 		3914A56BF21E2AFA0206271F /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F12DD6199D6E2B450C86400 /* AppRouter.swift */; };
 		4368BF6E4952BF35A8D6CF9B /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E469912B4DA00DE9DC2CB51 /* AppSettings.swift */; };
-		447F7487369509D86F8B424B /* PrintKit.app in Frameworks */ = {isa = PBXBuildFile; fileRef = A3DAC0B2C1D9299A2292EC13 /* PrintKit.app */; };
+		447F7487369509D86F8B424B /* 3DPrintKit.app in Frameworks */ = {isa = PBXBuildFile; fileRef = A3DAC0B2C1D9299A2292EC13 /* 3DPrintKit.app */; };
 		4615CA5A35924B2AC22B2C1F /* StorageAndAMSViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E468E744CCF9861193B80EC /* StorageAndAMSViews.swift */; };
 		4CA563CBE1C1DB039F5EB237 /* PrintQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEEF451ADDC891B8F3392091 /* PrintQueueView.swift */; };
 		54E416F8C66F9036DDDE7FAD /* CalculatorViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43CB2C947672C6EC3748B544 /* CalculatorViews.swift */; };
@@ -35,7 +35,7 @@
 		58750309F07E70F3A937C2C5 /* PrintKitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FE8E7CB3AABA31501FBEF29 /* PrintKitTests.swift */; };
 		59A17A09B0D88BACB5D481C6 /* CompatibilityEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F27EF0C4BD553A66F87386B4 /* CompatibilityEngine.swift */; };
 		6566262D63BF4685DE43B90B /* KnowledgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E89D21D754213FDC2BEA0D16 /* KnowledgeView.swift */; };
-		657AF8BA46431224BAC21B93 /* PrintKitWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C6491B92ADE2D84C9F11AE66 /* PrintKitWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		657AF8BA46431224BAC21B93 /* 3DPrintKitWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C6491B92ADE2D84C9F11AE66 /* 3DPrintKitWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		76C754EDDE1BAAAE13073262 /* SyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ABC3EEAE1493CC50B6F9ADC /* SyncEngine.swift */; };
 		79CA2DD971B35A83A91B1B42 /* CostEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1454FAE5C99DFCB84A3F5652 /* CostEngine.swift */; };
 		7AD441E7755E8618594DE922 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAC45E98F6D77FB6DBEE3B5D /* Components.swift */; };
@@ -54,7 +54,7 @@
 		A88AE8B1F2B318503E1C6D49 /* ReadinessEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 550217CA639FEADBF51A21F3 /* ReadinessEngine.swift */; };
 		A9F2AF5F69EBBD7B735FCB8D /* FilamentMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEFDD19B81A6E6850E08BD9B /* FilamentMath.swift */; };
 		AA424536A8914B3C4B597463 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29A30B179700559335A64448 /* HomeView.swift */; };
-		B1CCDC57459703855643D047 /* CommandCenterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06F172281CC0AAB331F9C10C /* CommandCenterView.swift */; };
+		B1CCDC57459703855643D047 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06F172281CC0AAB331F9C10C /* SearchView.swift */; };
 		B299663C4F595FB685EE7E69 /* FailureJournalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AC27FF5F185FC74FBA5134F /* FailureJournalView.swift */; };
 		B54A22F564573D104407DDDA /* NFCWriteFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CDAE9D000B4E96AD3637C77 /* NFCWriteFlowView.swift */; };
 		B651B5687F9FDA33EB55A92C /* FilamentMaterial.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76B4CA3B004955F17FA128F3 /* FilamentMaterial.swift */; };
@@ -109,7 +109,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				657AF8BA46431224BAC21B93 /* PrintKitWidgets.appex in Embed Foundation Extensions */,
+				657AF8BA46431224BAC21B93 /* 3DPrintKitWidgets.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -118,7 +118,7 @@
 
 /* Begin PBXFileReference section */
 		020BD0F9544347974B3A18A9 /* ModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelTests.swift; sourceTree = "<group>"; };
-		06F172281CC0AAB331F9C10C /* CommandCenterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandCenterView.swift; sourceTree = "<group>"; };
+		06F172281CC0AAB331F9C10C /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		0ABC3EEAE1493CC50B6F9ADC /* SyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncEngine.swift; sourceTree = "<group>"; };
 		0DDA19A61177E35E26C30BE4 /* NFCManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NFCManager.swift; sourceTree = "<group>"; };
 		0EAD31D671669851C9A9DEF2 /* GuidanceViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidanceViews.swift; sourceTree = "<group>"; };
@@ -204,7 +204,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				447F7487369509D86F8B424B /* PrintKit.app in Frameworks */,
+				447F7487369509D86F8B424B /* 3DPrintKit.app in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -256,8 +256,8 @@
 		2BFA68B526446F699FC89F7C /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A3DAC0B2C1D9299A2292EC13 /* PrintKit.app */,
-				C6491B92ADE2D84C9F11AE66 /* PrintKitWidgets.appex */,
+				A3DAC0B2C1D9299A2292EC13 /* 3DPrintKit.app */,
+				C6491B92ADE2D84C9F11AE66 /* 3DPrintKitWidgets.appex */,
 				E51F3957E7DF01AD056A736F /* PrintKitTests.xctest */,
 				644914B911A085B3FBCDA866 /* PrintKitUITests.xctest */,
 			);
@@ -267,7 +267,7 @@
 		2F1B624F6155C981A98090A3 /* Home */ = {
 			isa = PBXGroup;
 			children = (
-				06F172281CC0AAB331F9C10C /* CommandCenterView.swift */,
+				06F172281CC0AAB331F9C10C /* SearchView.swift */,
 				29A30B179700559335A64448 /* HomeView.swift */,
 				64A80DCDD854D7F994E55C13 /* ReadinessCheckView.swift */,
 			);
@@ -492,7 +492,7 @@
 			);
 			name = PrintKit;
 			productName = PrintKit;
-			productReference = A3DAC0B2C1D9299A2292EC13 /* PrintKit.app */;
+			productReference = A3DAC0B2C1D9299A2292EC13 /* 3DPrintKit.app */;
 			productType = "com.apple.product-type.application";
 		};
 		547A153F1ECA52E9E677ED27 /* PrintKitTests */ = {
@@ -526,7 +526,7 @@
 			);
 			name = PrintKitWidgets;
 			productName = PrintKitWidgets;
-			productReference = C6491B92ADE2D84C9F11AE66 /* PrintKitWidgets.appex */;
+			productReference = C6491B92ADE2D84C9F11AE66 /* 3DPrintKitWidgets.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
@@ -614,7 +614,7 @@
 				3809CF0513D31C3E38798DC2 /* ProfileAndHistoryViews.swift in Sources */,
 				059B25BD483DA2DABD523906 /* ProjectViews.swift in Sources */,
 				C79B773E5B00E33F69EEAB3B /* SettingsView.swift in Sources */,
-				B1CCDC57459703855643D047 /* CommandCenterView.swift in Sources */,
+				B1CCDC57459703855643D047 /* SearchView.swift in Sources */,
 				AA424536A8914B3C4B597463 /* HomeView.swift in Sources */,
 				9DB48C2A99E069F742F331EA /* ReadinessCheckView.swift in Sources */,
 				CAED659F34118CF1FA2FB83F /* MaterialAssistantView.swift in Sources */,
@@ -933,6 +933,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = PrintKit/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -946,6 +947,10 @@
 				PRODUCT_MODULE_NAME = PrintKit;
 				PRODUCT_NAME = 3DPrintKit;
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -1171,6 +1176,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = PrintKit/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1185,6 +1191,10 @@
 				PRODUCT_MODULE_NAME = PrintKit;
 				PRODUCT_NAME = 3DPrintKit;
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_COMPILATION_MODE = singlefile;
 				SWIFT_EMIT_LOC_STRINGS = YES;

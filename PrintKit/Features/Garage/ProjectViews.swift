@@ -373,21 +373,11 @@ struct BOMItemFormView: View {
             }
             Section("Quantity & Cost") {
                 Stepper("Qty: \(quantity, specifier: "%g")", value: $quantity, in: 0...9999, step: 1)
-                HStack {
-                    Text("Unit cost")
-                    Spacer()
-                    TextField("0.00", value: $unitCost, format: .number)
-                        .keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 100)
-                }
+                PKNumericField(label: "Unit cost", value: $unitCost, placeholder: "0.00")
             }
             if category == .printedPart || category == .filament {
                 Section("Filament") {
-                    HStack {
-                        Text("Estimated grams")
-                        Spacer()
-                        TextField("0", value: $grams, format: .number)
-                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 100)
-                    }
+                    PKNumericField(label: "Estimated grams", value: $grams)
                     Picker("Source spool", selection: $spool) {
                         Text("Any").tag(Spool?.none)
                         ForEach(spools.filter { !$0.isArchived }) { Text($0.displayName).tag(Spool?.some($0)) }
@@ -399,6 +389,7 @@ struct BOMItemFormView: View {
             }
         }
         .navigationTitle(item == nil ? "Add BOM Item" : "Edit BOM Item")
+        .pkDismissableKeyboard()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }

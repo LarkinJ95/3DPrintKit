@@ -17,6 +17,42 @@ enum AppTab: Int, Hashable {
     case home, spools, materials, tools, garage
 }
 
+/// A destination that is a *place* in the app rather than a task.
+///
+/// Places are always pushed onto their tab's navigation stack, so they arrive
+/// with a back button no matter whether the user came from a list row, a Home
+/// shortcut, a Siri intent, or a deep link. Tasks — scan, add, log — are
+/// presented as sheets and own their own Cancel/Save buttons.
+enum PushDestination: Hashable {
+    case printCost
+    case troubleshoot
+    case calibration
+    case compareMaterials
+    case readiness
+    /// Search results push straight to the item the user picked.
+    case material(String)
+    case troubleshootIssue(String)
+
+    @ViewBuilder
+    var view: some View {
+        switch self {
+        case .printCost: CostCalculatorView()
+        case .troubleshoot: TroubleshootListView()
+        case .calibration: CalibrationListView()
+        case .compareMaterials: MaterialCompareView()
+        case .readiness: ReadinessCheckView()
+        case .material(let id):
+            if let material = MaterialLibrary.shared.material(for: id) {
+                MaterialDetailView(material: material)
+            }
+        case .troubleshootIssue(let id):
+            if let issue = TroubleshootingLibrary.issues.first(where: { $0.id == id }) {
+                TroubleshootDetailView(issue: issue)
+            }
+        }
+    }
+}
+
 enum QuickAction: String, Identifiable, CaseIterable {
     case scanSpool, addSpool, writeNFC, compareMaterials, startDrying, logPrint,
          newProject, printCost, troubleshoot, startCalibration, logMaintenance, checkReadiness
@@ -44,7 +80,7 @@ enum QuickAction: String, Identifiable, CaseIterable {
         switch self {
         case .scanSpool: return "wave.3.right.circle"
         case .addSpool: return "plus.circle"
-        case .writeNFC: return "pencil.and.radiowaves.left.and.right"
+        case .writeNFC: return "pencil.circle"
         case .compareMaterials: return "rectangle.split.2x1"
         case .startDrying: return "humidity"
         case .logPrint: return "printer.fill"
@@ -56,6 +92,32 @@ enum QuickAction: String, Identifiable, CaseIterable {
         case .checkReadiness: return "checkmark.shield"
         }
     }
+
+    /// The tab this action belongs to.
+    var tab: AppTab {
+        switch self {
+        case .scanSpool, .addSpool, .writeNFC, .startDrying: return .spools
+        case .compareMaterials: return .materials
+        case .printCost, .troubleshoot, .startCalibration: return .tools
+        case .logPrint, .newProject, .logMaintenance: return .garage
+        case .checkReadiness: return .home
+        }
+    }
+
+    /// Non-nil for actions that open a place rather than start a task.
+    var destination: PushDestination? {
+        switch self {
+        case .printCost: return .printCost
+        case .troubleshoot: return .troubleshoot
+        case .startCalibration: return .calibration
+        case .compareMaterials: return .compareMaterials
+        case .checkReadiness: return .readiness
+        default: return nil
+        }
+    }
+
+    /// The four actions surfaced on Home. Everything else lives in search.
+    static let homeShortcuts: [QuickAction] = [.scanSpool, .logPrint, .startDrying, .printCost]
 }
 
 @Observable
@@ -64,8 +126,17 @@ final class AppRouter {
     static let shared = AppRouter()
 
     var selectedTab: AppTab = .home
+    /// Sheet-presented tasks only. Places go through `paths`.
     var quickAction: QuickAction?
     var deepLinkSpoolID: UUID?
+    var paths: [AppTab: [PushDestination]] = [:]
+
+    func path(for tab: AppTab) -> Binding<[PushDestination]> {
+        Binding(
+            get: { [weak self] in self?.paths[tab] ?? [] },
+            set: { [weak self] in self?.paths[tab] = $0 }
+        )
+    }
 
     func handle(url: URL) {
         guard ["3dprintkit", "printkit"].contains(url.scheme?.lowercased()) else { return }
@@ -77,49 +148,45 @@ final class AppRouter {
         case "materials": selectedTab = .materials
         case "tools": selectedTab = .tools
         case "garage": selectedTab = .garage
-        case "scan":
-            selectedTab = .spools
-            quickAction = .scanSpool
-        case "add-spool":
-            selectedTab = .spools
-            quickAction = .addSpool
+        case "scan": perform(.scanSpool)
+        case "add-spool": perform(.addSpool)
         case "spool":
             if let id = UUID(uuidString: path) {
                 selectedTab = .spools
                 deepLinkSpoolID = id
             }
-        case "drying":
-            selectedTab = .spools
-            quickAction = .startDrying
-        case "cost":
-            selectedTab = .tools
-            quickAction = .printCost
-        case "compare":
-            selectedTab = .materials
-            quickAction = .compareMaterials
-        case "troubleshoot":
-            selectedTab = .tools
-            quickAction = .troubleshoot
-        case "readiness":
-            selectedTab = .home
-            quickAction = .checkReadiness
-        case "maintenance":
-            selectedTab = .garage
-            quickAction = .logMaintenance
+        case "drying": perform(.startDrying)
+        case "cost": perform(.printCost)
+        case "compare": perform(.compareMaterials)
+        case "troubleshoot": perform(.troubleshoot)
+        case "readiness": perform(.checkReadiness)
+        case "maintenance": perform(.logMaintenance)
         default:
             break
         }
     }
 
     func perform(_ action: QuickAction) {
-        switch action {
-        case .compareMaterials: selectedTab = .materials
-        case .printCost, .troubleshoot, .startCalibration: selectedTab = .tools
-        case .logPrint, .newProject, .logMaintenance: selectedTab = .garage
-        case .checkReadiness: selectedTab = .home
-        case .scanSpool, .addSpool, .writeNFC, .startDrying: selectedTab = .spools
+        selectedTab = action.tab
+        if let destination = action.destination {
+            // Replace rather than append, so invoking the same shortcut twice
+            // doesn't stack duplicates on the tab's back stack.
+            paths[action.tab] = [destination]
+        } else {
+            quickAction = action
         }
-        quickAction = action
+    }
+
+    /// Opens a place on a given tab, replacing whatever that tab had pushed.
+    func push(_ destination: PushDestination, on tab: AppTab) {
+        selectedTab = tab
+        paths[tab] = [destination]
+    }
+
+    /// Opens a spool's detail from anywhere.
+    func openSpool(_ id: UUID) {
+        selectedTab = .spools
+        deepLinkSpoolID = id
     }
 
     func clearQuickAction() { quickAction = nil }

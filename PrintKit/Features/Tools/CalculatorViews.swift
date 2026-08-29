@@ -15,8 +15,8 @@ struct ScaleCalculatorView: View {
     var body: some View {
         Form {
             Section("Scale Reading") {
-                HStack { Text("Gross weight"); Spacer(); TextField("g", value: $gross, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 100); Text("g").foregroundStyle(.secondary) }
-                HStack { Text("Empty spool"); Spacer(); TextField("g", value: $emptySpool, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 100); Text("g").foregroundStyle(.secondary) }
+                PKNumericField(label: "Gross weight", value: $gross, unit: "g")
+                PKNumericField(label: "Empty spool", value: $emptySpool, unit: "g")
                 Picker("Diameter", selection: $diameter) {
                     Text("1.75 mm").tag(1.75); Text("2.85 mm").tag(2.85)
                 }
@@ -34,6 +34,7 @@ struct ScaleCalculatorView: View {
             }
         }
         .navigationTitle("Scale Calculator")
+        .pkDismissableKeyboard()
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -105,6 +106,7 @@ struct ConverterView: View {
             }
         }
         .navigationTitle("Converter")
+        .pkDismissableKeyboard()
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -123,26 +125,26 @@ struct CostCalculatorView: View {
     var body: some View {
         Form {
             Section("Filament") {
-                HStack { Text("Grams used"); Spacer(); TextField("0", value: $input.filamentGrams, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
-                HStack { Text("Spool price"); Spacer(); TextField("0.00", value: $input.filamentPricePerSpool, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
-                HStack { Text("Spool size (g)"); Spacer(); TextField("1000", value: $input.spoolSizeGrams, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
+                PKNumericField(label: "Grams used", value: $input.filamentGrams)
+                PKNumericField(label: "Spool price", value: $input.filamentPricePerSpool, placeholder: "0.00")
+                PKNumericField(label: "Spool size (g)", value: $input.spoolSizeGrams, placeholder: "1000")
             }
             Section("Time & Energy") {
-                HStack { Text("Print time (h)"); Spacer(); TextField("0", value: $input.printHours, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
-                HStack { Text("Printer watts"); Spacer(); TextField("150", value: $input.printerWatts, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
-                HStack { Text("Electricity /kWh"); Spacer(); TextField("0.15", value: $input.electricityRatePerKWh, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
-                HStack { Text("Machine rate /h"); Spacer(); TextField("0", value: $input.machineHourlyRate, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
+                PKNumericField(label: "Print time (h)", value: $input.printHours)
+                PKNumericField(label: "Printer watts", value: $input.printerWatts, placeholder: "150")
+                PKNumericField(label: "Electricity /kWh", value: $input.electricityRatePerKWh, placeholder: "0.15")
+                PKNumericField(label: "Machine rate /h", value: $input.machineHourlyRate)
             }
             Section("Labor & Extras") {
-                HStack { Text("Setup (min)"); Spacer(); TextField("0", value: $input.setupLaborMinutes, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
-                HStack { Text("Finishing (min)"); Spacer(); TextField("0", value: $input.finishingLaborMinutes, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
-                HStack { Text("Labor rate /h"); Spacer(); TextField("0", value: $input.laborRatePerHour, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
-                HStack { Text("Consumables"); Spacer(); TextField("0", value: $input.consumablesCost, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
-                HStack { Text("Waste %"); Spacer(); TextField("0", value: $input.wastePercent, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
-                HStack { Text("Failure allowance %"); Spacer(); TextField("0", value: $input.failureAllowancePercent, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
-                HStack { Text("Shipping"); Spacer(); TextField("0", value: $input.shippingCost, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
-                HStack { Text("Packaging"); Spacer(); TextField("0", value: $input.packagingCost, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
-                HStack { Text("Markup %"); Spacer(); TextField("0", value: $input.markupPercent, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
+                PKNumericField(label: "Setup (min)", value: $input.setupLaborMinutes)
+                PKNumericField(label: "Finishing (min)", value: $input.finishingLaborMinutes)
+                PKNumericField(label: "Labor rate /h", value: $input.laborRatePerHour)
+                PKNumericField(label: "Consumables", value: $input.consumablesCost)
+                PKNumericField(label: "Waste %", value: $input.wastePercent)
+                PKNumericField(label: "Failure allowance %", value: $input.failureAllowancePercent)
+                PKNumericField(label: "Shipping", value: $input.shippingCost)
+                PKNumericField(label: "Packaging", value: $input.packagingCost)
+                PKNumericField(label: "Markup %", value: $input.markupPercent)
             }
             Section("Breakdown") {
                 KeyValueRow(key: "Filament", value: Format.currency(result.filamentCost))
@@ -185,15 +187,9 @@ struct CostCalculatorView: View {
             }
         }
         .navigationTitle("Print Cost")
+        .pkDismissableKeyboard()
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                if !dismissDisabled { EmptyView() }
-            }
-        }
     }
-
-    private var dismissDisabled: Bool { true }
 }
 
 // MARK: - Volumetric flow
@@ -279,9 +275,9 @@ struct PrintEstimatorView: View {
     var body: some View {
         Form {
             Section("Slicer Estimates") {
-                HStack { Text("Time (min)"); Spacer(); TextField("0", value: $totalMinutes, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 90) }
-                HStack { Text("Filament (g)"); Spacer(); TextField("0", value: $totalGrams, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 90) }
-                HStack { Text("Filament (m)"); Spacer(); TextField("0", value: $totalLength, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 90) }
+                PKNumericField(label: "Time (min)", value: $totalMinutes)
+                PKNumericField(label: "Filament (g)", value: $totalGrams)
+                PKNumericField(label: "Filament (m)", value: $totalLength)
                 Stepper("Parts \(Int(parts))", value: $parts, in: 1...500)
             }
             Section("Per Part") {
@@ -311,6 +307,7 @@ struct PrintEstimatorView: View {
             }
         }
         .navigationTitle("Print Estimator")
+        .pkDismissableKeyboard()
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -347,7 +344,7 @@ struct MultiSpoolPlannerView: View {
     var body: some View {
         Form {
             Section("Job Requirement") {
-                HStack { Text("Filament needed"); Spacer(); TextField("0", value: $required, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 90); Text("g").foregroundStyle(.secondary) }
+                PKNumericField(label: "Filament needed", value: $required, unit: "g")
             }
             Section("Assign Spools") {
                 ForEach(spools.filter { !$0.isArchived && $0.currentWeightG > 0 }) { spool in
@@ -383,6 +380,7 @@ struct MultiSpoolPlannerView: View {
             }
         }
         .navigationTitle("Multi-Spool Planner")
+        .pkDismissableKeyboard()
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -435,6 +433,7 @@ struct AMSPlannerView: View {
             }
         }
         .navigationTitle("AMS Planner")
+        .pkDismissableKeyboard()
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -501,15 +500,16 @@ struct ShrinkageView: View {
             }
         }
         .navigationTitle("Shrinkage Compensation")
+        .pkDismissableKeyboard()
         .navigationBarTitleDisplayMode(.inline)
     }
 
     private struct AxisFields: View {
         @Binding var value: SIMD3<Double>
         var body: some View {
-            HStack { Text("X"); Spacer(); TextField("0", value: $value.x, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
-            HStack { Text("Y"); Spacer(); TextField("0", value: $value.y, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
-            HStack { Text("Z"); Spacer(); TextField("0", value: $value.z, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
+            PKNumericField(label: "X", value: $value.x)
+            PKNumericField(label: "Y", value: $value.y)
+            PKNumericField(label: "Z", value: $value.z)
         }
     }
 }
@@ -530,8 +530,8 @@ struct HoleCompensationView: View {
     var body: some View {
         Form {
             Section("Measurement") {
-                HStack { Text("Designed diameter"); Spacer(); TextField("0", value: $designed, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 90); Text("mm").foregroundStyle(.secondary) }
-                HStack { Text("Measured diameter"); Spacer(); TextField("0", value: $measured, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 90); Text("mm").foregroundStyle(.secondary) }
+                PKNumericField(label: "Designed diameter", value: $designed, unit: "mm")
+                PKNumericField(label: "Measured diameter", value: $measured, unit: "mm")
             }
             Section("Correction") {
                 let correction = FilamentMath.holeCompensation(designedMM: designed, measuredMM: measured)
@@ -565,6 +565,7 @@ struct HoleCompensationView: View {
             }
         }
         .navigationTitle("Hole Compensation")
+        .pkDismissableKeyboard()
         .navigationBarTitleDisplayMode(.inline)
     }
 }

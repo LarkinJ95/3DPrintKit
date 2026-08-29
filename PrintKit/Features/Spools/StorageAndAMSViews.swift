@@ -304,13 +304,7 @@ struct TransferFormView: View {
                     Text($0.displayName).tag(Spool?.some($0))
                 }
             }
-            HStack {
-                Text("Grams to move")
-                Spacer()
-                TextField("0", value: $grams, format: .number)
-                    .keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 90)
-                Text("g").foregroundStyle(.secondary)
-            }
+            PKNumericField(label: "Grams to move", value: $grams, unit: "g")
             if let source, grams > source.currentWeightG {
                 Label("Source spool only holds \(Format.grams(source.currentWeightG)).", systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.orange)
@@ -319,6 +313,7 @@ struct TransferFormView: View {
             TextField("Notes", text: $notes)
         }
         .navigationTitle("New Transfer")
+        .pkDismissableKeyboard()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -395,6 +390,7 @@ struct SpoolMatchView: View {
             }
         }
         .navigationTitle("Find Filament")
+        .pkDismissableKeyboard()
     }
 }
 
@@ -545,6 +541,7 @@ struct WishlistFormView: View {
             TextField("Project idea", text: $projectIdea, axis: .vertical).lineLimit(2...4)
         }
         .navigationTitle("Wishlist Item")
+        .pkDismissableKeyboard()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -628,12 +625,13 @@ struct PurchaseFormView: View {
                 ForEach(spools) { Text($0.displayName).tag(Spool?.some($0)) }
             }
             TextField("Vendor", text: $vendor)
-            HStack { Text("Price"); Spacer(); TextField("0.00", value: $price, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 100) }
-            HStack { Text("Shipping"); Spacer(); TextField("0.00", value: $shipping, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 100) }
+            PKNumericField(label: "Price", value: $price, placeholder: "0.00")
+            PKNumericField(label: "Shipping", value: $shipping, placeholder: "0.00")
             Stepper("Quantity \(quantity)", value: $quantity, in: 1...50)
             DatePicker("Date", selection: $date, displayedComponents: .date)
         }
         .navigationTitle("Add Purchase")
+        .pkDismissableKeyboard()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }

@@ -5,7 +5,6 @@ import SwiftData
 /// plate, nozzle, and the intended job.
 struct ReadinessCheckView: View {
     @Environment(\.modelContext) private var context
-    @Environment(\.dismiss) private var dismiss
     @Query private var printers: [PrinterDevice]
     @Query private var spools: [Spool]
     @Query private var profiles: [SlicerProfile]
@@ -68,15 +67,7 @@ struct ReadinessCheckView: View {
             }
 
             Section("Intended Print") {
-                HStack {
-                    Text("Filament required")
-                    Spacer()
-                    TextField("0", value: $requiredGrams, format: .number)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 90)
-                    Text("g").foregroundStyle(.secondary)
-                }
+                PKNumericField(label: "Filament required", value: $requiredGrams, unit: "g")
                 Toggle("Uses AMS / MMU", isOn: $usesAMS)
                 Picker("Support Material", selection: $supportMaterialID) {
                     Text("Same material / none").tag(String?.none)
@@ -123,11 +114,7 @@ struct ReadinessCheckView: View {
             }
         }
         .navigationTitle("Print Readiness")
+        .pkDismissableKeyboard()
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Done") { dismiss() }
-            }
-        }
     }
 }

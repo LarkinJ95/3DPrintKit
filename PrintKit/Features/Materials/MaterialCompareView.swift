@@ -63,11 +63,12 @@ struct MaterialCompareView: View {
                                         .frame(width: 72, alignment: .leading)
                                         .lineLimit(1)
                                     GeometryReader { geo in
+                                        let barWidth = max(0, geo.size.width) * CGFloat(material.rating(for: trait)) / 5
                                         ZStack(alignment: .leading) {
                                             Capsule().fill(Color(.systemFill)).frame(height: 8)
                                             Capsule()
                                                 .fill(Color.accentColor)
-                                                .frame(width: geo.size.width * CGFloat(material.rating(for: trait)) / 5, height: 8)
+                                                .frame(width: barWidth, height: 8)
                                         }
                                     }
                                     .frame(height: 8)

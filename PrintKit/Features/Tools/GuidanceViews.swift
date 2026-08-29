@@ -274,13 +274,7 @@ struct CalibrationDetailView: View {
                     ForEach(MaterialLibrary.shared.materials) { Text($0.name).tag($0.id) }
                 }
                 if let unit = guide.resultUnit {
-                    HStack {
-                        Text("Result")
-                        Spacer()
-                        TextField("0", value: $numericResult, format: .number)
-                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 100)
-                        Text(unit).foregroundStyle(.secondary)
-                    }
+                    PKNumericField(label: "Result", value: $numericResult, unit: unit)
                 }
                 TextField("Summary (e.g. best at 242 °C)", text: $summary)
                 TextField("Notes", text: $notes, axis: .vertical).lineLimit(2...4)
@@ -300,6 +294,7 @@ struct CalibrationDetailView: View {
             }
         }
         .navigationTitle(guide.title)
+        .pkDismissableKeyboard()
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -437,7 +432,7 @@ struct NFCUtilitiesView: View {
                 NavigationLink {
                     NFCWriteFlowView()
                 } label: {
-                    Label("Write 3DPrintKit Spool Record", systemImage: "pencil.and.radiowaves.left.and.right")
+                    Label("Write 3DPrintKit Spool Record", systemImage: "pencil.circle")
                 }
             }
 
@@ -464,6 +459,7 @@ struct NFCUtilitiesView: View {
             }
         }
         .navigationTitle("NFC Utilities")
+        .pkDismissableKeyboard()
         .alert("Erase Tag?", isPresented: $showEraseConfirm) {
             Button("Erase", role: .destructive) { nfc.begin(mode: .erase) }
             Button("Cancel", role: .cancel) {}

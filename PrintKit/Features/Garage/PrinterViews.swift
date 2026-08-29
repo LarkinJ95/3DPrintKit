@@ -3,11 +3,10 @@ import SwiftData
 
 struct GarageHomeView: View {
     @Query private var printers: [PrinterDevice]
-    @Environment(AppRouter.self) private var router
 
     var body: some View {
         List {
-            Section("Workshop") {
+            Section("Printers") {
                 ForEach(printers) { printer in
                     NavigationLink { PrinterDetailView(printer: printer) } label: {
                         PrinterStatusRow(printer: printer)
@@ -17,7 +16,12 @@ struct GarageHomeView: View {
                     Label("Add Printer", systemImage: "plus.circle")
                 }
             }
-            Section("Manage") {
+            Section {
+                NavigationLink(value: PushDestination.readiness) {
+                    Label("Print Readiness Check", systemImage: "checkmark.shield")
+                }
+            }
+            Section("Maintenance & Parts") {
                 NavigationLink { MaintenanceListView() } label: { Label("Maintenance", systemImage: "screwdriver") }
                 NavigationLink { AccessoryListView() } label: { Label("Accessories & Spares", systemImage: "shippingbox") }
                 NavigationLink { ProfileListView() } label: { Label("Slicer Profiles", systemImage: "doc.text") }
@@ -29,13 +33,8 @@ struct GarageHomeView: View {
                 NavigationLink { FailureJournalView() } label: { Label("Failure Journal", systemImage: "exclamationmark.bubble") }
                 NavigationLink { KnowledgeView() } label: { Label("Personal Knowledge", systemImage: "brain") }
             }
-            Section {
-                NavigationLink { ReadinessCheckView() } label: { Label("Print Readiness Check", systemImage: "checkmark.shield") }
-            }
-            Section {
-                NavigationLink { SettingsView() } label: { Label("Settings & Backup", systemImage: "gear") }
-            }
         }
+        .listStyle(.insetGrouped)
         .navigationTitle("Garage")
     }
 }
@@ -137,7 +136,7 @@ struct PrinterDetailView: View {
             }
 
             Section {
-                NavigationLink { ReadinessCheckView() } label: {
+                NavigationLink(value: PushDestination.readiness) {
                     Label("Run Readiness Check", systemImage: "checkmark.shield")
                 }
             }
@@ -207,15 +206,16 @@ struct PrinterFormView: View {
                 }
             }
             Section("Build Volume (mm)") {
-                HStack { Text("X"); Spacer(); TextField("220", value: $buildX, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
-                HStack { Text("Y"); Spacer(); TextField("220", value: $buildY, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
-                HStack { Text("Z"); Spacer(); TextField("250", value: $buildZ, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
+                PKNumericField(label: "X", value: $buildX, placeholder: "220")
+                PKNumericField(label: "Y", value: $buildY, placeholder: "220")
+                PKNumericField(label: "Z", value: $buildZ, placeholder: "250")
             }
             Section("Notes") {
                 TextField("Notes", text: $notes, axis: .vertical).lineLimit(2...5)
             }
         }
         .navigationTitle(printer == nil ? "Add Printer" : "Edit Printer")
+        .pkDismissableKeyboard()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }

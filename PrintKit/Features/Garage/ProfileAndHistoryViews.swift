@@ -379,8 +379,8 @@ struct PrintLogFormView: View {
                 }
             }
             Section("Outcome") {
-                HStack { Text("Duration (min)"); Spacer(); TextField("0", value: $minutes, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
-                HStack { Text("Filament used (g)"); Spacer(); TextField("0", value: $grams, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
+                PKNumericField(label: "Duration (min)", value: $minutes)
+                PKNumericField(label: "Filament used (g)", value: $grams)
                 Picker("Category", selection: $category) {
                     ForEach(PrintOutcomeCategory.allCases) { Text($0.rawValue).tag($0) }
                 }
@@ -388,11 +388,12 @@ struct PrintLogFormView: View {
                 if !success {
                     TextField("Failure category (e.g. warping)", text: $failureCategory)
                 }
-                HStack { Text("Cost"); Spacer(); TextField("0.00", value: $cost, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80) }
+                PKNumericField(label: "Cost", value: $cost, placeholder: "0.00")
                 TextField("Notes", text: $notes, axis: .vertical).lineLimit(2...4)
             }
         }
         .navigationTitle(record == nil ? "Log Print" : "Edit Print")
+        .pkDismissableKeyboard()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }

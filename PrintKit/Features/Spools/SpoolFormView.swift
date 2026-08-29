@@ -79,36 +79,13 @@ struct SpoolFormView: View {
                         Text(Format.grams(originalWeight)).monospacedDigit()
                     }
                 }
-                HStack {
-                    Text("Current weight")
-                    Spacer()
-                    TextField("g", value: $currentWeight, format: .number)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 100)
-                    Text("g").foregroundStyle(.secondary)
-                }
-                HStack {
-                    Text("Empty spool")
-                    Spacer()
-                    TextField("g", value: $emptySpoolWeight, format: .number)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 100)
-                    Text("g").foregroundStyle(.secondary)
-                }
+                PKNumericField(label: "Current weight", value: $currentWeight, unit: "g")
+                PKNumericField(label: "Empty spool", value: $emptySpoolWeight, unit: "g")
             }
 
             Section("Purchase") {
-                HStack {
-                    Text("Cost")
-                    Spacer()
-                    TextField("0.00", value: $cost, format: .number)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 100)
-                    Text(AppSettings.shared.currencyCode).foregroundStyle(.secondary)
-                }
+                PKNumericField(label: "Cost", value: $cost,
+                               unit: AppSettings.shared.currencyCode, placeholder: "0.00")
                 TextField("Vendor", text: $vendor)
                 Toggle("Record purchase date", isOn: $hasPurchaseDate)
                 if hasPurchaseDate {
@@ -147,6 +124,7 @@ struct SpoolFormView: View {
             }
         }
         .navigationTitle(spool == nil ? "Add Spool" : "Edit Spool")
+        .pkDismissableKeyboard()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }

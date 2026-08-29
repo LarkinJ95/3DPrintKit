@@ -38,6 +38,12 @@ struct SpoolListView: View {
         return MaterialLibrary.shared.materials.filter { ids.contains($0.id) }
     }
 
+    private var isFiltered: Bool { !search.isEmpty || materialFilter != nil }
+
+    private var totalGrams: Double {
+        spools.reduce(0) { $0 + $1.currentWeightG }
+    }
+
     var body: some View {
         Group {
             if allSpools.isEmpty {
@@ -48,84 +54,20 @@ struct SpoolListView: View {
                     showAddSpool = true
                 }
             } else {
-                List {
-                    if !materialsInUse.isEmpty {
-                        Section {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: PK.Spacing.sm) {
-                                    SelectableChip(title: "All", isSelected: materialFilter == nil) { materialFilter = nil }
-                                    ForEach(materialsInUse) { material in
-                                        SelectableChip(title: material.name, isSelected: materialFilter == material.id) {
-                                            materialFilter = material.id
-                                        }
-                                    }
-                                }
-                            }
-                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                            .listRowBackground(Color.clear)
-                        }
-                    }
-
-                    ForEach(spools) { spool in
-                        NavigationLink {
-                            SpoolDetailView(spool: spool)
-                        } label: {
-                            SpoolRowView(spool: spool, dryingActive: activeDryingSpoolIDs.contains(spool.id))
-                        }
-                        .swipeActions(edge: .leading) {
-                            Button {
-                                spool.isFavorite.toggle()
-                                Haptics.light()
-                            } label: {
-                                Label("Favorite", systemImage: spool.isFavorite ? "star.fill" : "star")
-                            }
-                            .tint(.yellow)
-                        }
-                        .swipeActions(edge: .trailing) {
-                            Button(role: .destructive) {
-                                spoolToDelete = spool
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                            archiveButton(for: spool)
-                            .tint(.gray)
-                        }
-                        .contextMenu {
-                            Button { router.perform(.logPrint) } label: { Label("Use for Print", systemImage: "printer") }
-                            Button { router.perform(.startDrying) } label: { Label("Start Drying", systemImage: "humidity") }
-                            Button { router.perform(.writeNFC) } label: { Label("Write NFC", systemImage: "wave.3.right") }
-                            Divider()
-                            Button { duplicate(spool) } label: { Label("Duplicate", systemImage: "plus.square.on.square") }
-                            Button { spool.isArchived.toggle() } label: { Label(spool.isArchived ? "Unarchive" : "Archive", systemImage: "archivebox") }
-                            Button(role: .destructive) { markEmpty(spool) } label: { Label("Mark Empty", systemImage: "circle.slash") }
-                        }
-                    }
-                }
-                .searchable(text: $search, prompt: "Material, brand, color, vendor…")
+                list
             }
         }
-        .navigationTitle("Spools")
+        .navigationTitle("Inventory")
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button { showScanner = true } label: { Label("Scan Spool (NFC)", systemImage: "wave.3.right.circle") }
-                    Button { showAddSpool = true } label: { Label("Add Spool", systemImage: "plus") }
-                    Divider()
-                    NavigationLink { StorageListView() } label: { Label("Storage Locations", systemImage: "shippingbox") }
-                    NavigationLink { AMSManageView() } label: { Label("AMS / MMU", systemImage: "square.grid.2x2") }
-                    NavigationLink { TransferListView() } label: { Label("Transfers", systemImage: "arrow.left.arrow.right") }
-                    NavigationLink { SpoolMatchView() } label: { Label("Find Filament for a Job", systemImage: "magnifyingglass") }
-                    NavigationLink { DesiccantListView() } label: { Label("Desiccant", systemImage: "drop") }
-                    NavigationLink { WishlistView() } label: { Label("Wishlist", systemImage: "heart") }
-                    NavigationLink { PurchaseListView() } label: { Label("Purchases", systemImage: "cart") }
-                    Divider()
-                    Toggle("Show Archived", isOn: $showArchived)
-                } label: {
-                    Image(systemName: "ellipsis.circle")
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button { showScanner = true } label: {
+                    Image(systemName: "wave.3.right")
                 }
-            }
-            ToolbarItem(placement: .topBarLeading) {
-                Button { showAddSpool = true } label: { Image(systemName: "plus") }
+                .accessibilityLabel("Scan spool tag")
+                Button { showAddSpool = true } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("Add spool")
             }
         }
         .sheet(isPresented: $showAddSpool) {
@@ -149,11 +91,138 @@ struct SpoolListView: View {
         .navigationDestination(item: $linkedSpool) { spool in
             SpoolDetailView(spool: spool)
         }
-        .onChange(of: router.deepLinkSpoolID) { _, id in
-            guard let id, let spool = allSpools.first(where: { $0.id == id }) else { return }
-            router.deepLinkSpoolID = nil
-            linkedSpool = spool
+        .onChange(of: router.deepLinkSpoolID) { _, _ in openDeepLinkedSpool() }
+        .onAppear { openDeepLinkedSpool() }
+    }
+
+    private var list: some View {
+        List {
+            if !materialsInUse.isEmpty {
+                Section {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: PK.Spacing.sm) {
+                            SelectableChip(title: "All", isSelected: materialFilter == nil) { materialFilter = nil }
+                            ForEach(materialsInUse) { material in
+                                SelectableChip(title: material.name, isSelected: materialFilter == material.id) {
+                                    materialFilter = material.id
+                                }
+                            }
+                        }
+                        .padding(.horizontal, PK.Spacing.lg)
+                        .padding(.vertical, PK.Spacing.xs)
+                    }
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                }
+            }
+
+            if spools.isEmpty {
+                Section {
+                    noResults
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+            } else {
+                Section {
+                    ForEach(spools) { spool in
+                        NavigationLink {
+                            SpoolDetailView(spool: spool)
+                        } label: {
+                            SpoolRowView(spool: spool, dryingActive: activeDryingSpoolIDs.contains(spool.id))
+                        }
+                        .swipeActions(edge: .leading) {
+                            Button {
+                                spool.isFavorite.toggle()
+                                Haptics.light()
+                            } label: {
+                                Label("Favorite", systemImage: spool.isFavorite ? "star.slash" : "star")
+                            }
+                            .tint(.yellow)
+                        }
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) {
+                                spoolToDelete = spool
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                            archiveButton(for: spool)
+                        }
+                        .contextMenu {
+                            Button { router.perform(.logPrint) } label: { Label("Use for Print", systemImage: "printer") }
+                            Button { router.perform(.startDrying) } label: { Label("Start Drying", systemImage: "humidity") }
+                            Button { router.perform(.writeNFC) } label: { Label("Write NFC", systemImage: "wave.3.right") }
+                            Divider()
+                            Button { duplicate(spool) } label: { Label("Duplicate", systemImage: "plus.square.on.square") }
+                            Button { spool.isArchived.toggle() } label: { Label(spool.isArchived ? "Unarchive" : "Archive", systemImage: "archivebox") }
+                            Button(role: .destructive) { markEmpty(spool) } label: { Label("Mark Empty", systemImage: "circle.slash") }
+                        }
+                    }
+                } header: {
+                    HStack {
+                        Text(isFiltered ? "\(spools.count) Match\(spools.count == 1 ? "" : "es")" : "Spools")
+                        Spacer()
+                        Text(Format.grams(totalGrams))
+                            .monospacedDigit()
+                            .textCase(nil)
+                    }
+                }
+            }
+
+            // The inventory features that used to hide in the overflow menu.
+            Section("Inventory") {
+                inventoryLink("Storage Locations", "shippingbox") { StorageListView() }
+                inventoryLink("AMS / MMU", "square.grid.2x2") { AMSManageView() }
+                inventoryLink("Transfers", "arrow.left.arrow.right") { TransferListView() }
+                inventoryLink("Find Filament for a Job", "magnifyingglass") { SpoolMatchView() }
+                inventoryLink("Desiccant", "drop") { DesiccantListView() }
+                inventoryLink("Wishlist", "heart") { WishlistView() }
+                inventoryLink("Purchases", "cart") { PurchaseListView() }
+                Toggle(isOn: $showArchived) {
+                    Label("Show Archived Spools", systemImage: "archivebox")
+                }
+            }
         }
+        .listStyle(.insetGrouped)
+        .searchable(text: $search, prompt: "Material, brand, color, vendor…")
+        .refreshable {
+            await SyncEngine.shared.syncNow(context: context)
+        }
+    }
+
+    @ViewBuilder
+    private var noResults: some View {
+        if !search.isEmpty {
+            ContentUnavailableView.search(text: search)
+        } else {
+            ContentUnavailableView {
+                Label("No Spools Match", systemImage: "line.3.horizontal.decrease.circle")
+            } description: {
+                Text(materialFilter.flatMap { MaterialLibrary.shared.material(for: $0)?.name }
+                        .map { "You have no \($0) spools in stock." }
+                     ?? "Nothing matches the current filter.")
+            } actions: {
+                Button("Clear Filter") { materialFilter = nil }
+                    .buttonStyle(.borderedProminent)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func inventoryLink<Destination: View>(_ title: String, _ symbol: String,
+                                                  @ViewBuilder destination: @escaping () -> Destination) -> some View {
+        NavigationLink {
+            destination()
+        } label: {
+            Label(title, systemImage: symbol)
+        }
+    }
+
+    private func openDeepLinkedSpool() {
+        guard let id = router.deepLinkSpoolID,
+              let spool = allSpools.first(where: { $0.id == id }) else { return }
+        router.deepLinkSpoolID = nil
+        linkedSpool = spool
     }
 
     private func duplicate(_ spool: Spool) {
@@ -208,7 +277,10 @@ struct SpoolRowView: View {
                 HStack(spacing: 6) {
                     Text(spool.displayName).font(.subheadline.weight(.medium)).lineLimit(1)
                     if spool.isFavorite {
-                        Image(systemName: "star.fill").font(.caption2).foregroundStyle(.yellow)
+                        Image(systemName: "star.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.yellow)
+                            .accessibilityLabel("Favorite")
                     }
                 }
                 Text("\(material?.name ?? spool.materialID.uppercased()) · \(spool.finish.displayName)")
@@ -218,10 +290,12 @@ struct SpoolRowView: View {
                         .font(.caption2).foregroundStyle(.tertiary)
                 }
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
+            Spacer(minLength: PK.Spacing.sm)
+            VStack(alignment: .trailing, spacing: 4) {
                 Text(Format.grams(spool.currentWeightG))
-                    .font(.subheadline.weight(.semibold)).monospacedDigit()
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
                 let status = spool.status(dryingActive: dryingActive)
                 StatusBadge(status: status.status, text: status.rawValue)
             }

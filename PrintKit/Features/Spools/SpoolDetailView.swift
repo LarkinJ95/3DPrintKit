@@ -15,8 +15,10 @@ struct SpoolDetailView: View {
     @State private var showQR = false
     @State private var showLabels = false
     @State private var showNFCWrite = false
-    @State private var showLogUse = false
     @State private var gramsUsed: Double = 0
+    @State private var confirmLargeUse = false
+    @State private var lastLogged: Double?
+    @State private var undoTimer: Task<Void, Never>?
 
     private var material: FilamentMaterial? {
         MaterialLibrary.shared.material(for: spool.materialID)
@@ -67,27 +69,34 @@ struct SpoolDetailView: View {
                         }
                     }
                     .frame(maxWidth: .infinity)
-
-                    // Quick use logging
-                    HStack {
-                        TextField("Grams used", value: $gramsUsed, format: .number)
-                            .keyboardType(.decimalPad)
-                            .textFieldStyle(.roundedBorder)
-                        Button("Log Use") {
-                            guard gramsUsed > 0 else { return }
-                            spool.currentWeightG = max(spool.currentWeightG - gramsUsed, 0)
-                            spool.lastUsedDate = Date()
-                            SyncEngine.shared.enqueue(.init(id: UUID(), kind: .filamentDelta, entity: "spools",
-                                                            recordID: spool.id, payload: nil,
-                                                            deltaGrams: -gramsUsed, queuedAt: Date()))
-                            gramsUsed = 0
-                            Haptics.success()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(gramsUsed <= 0)
-                    }
                 }
                 .listRowBackground(Color.clear)
+            }
+
+            // MARK: Log use
+            Section {
+                PKNumericField(label: "Filament used", value: $gramsUsed, unit: "g")
+                Button {
+                    attemptLog()
+                } label: {
+                    Label("Log Use", systemImage: "minus.circle")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(gramsUsed <= 0)
+                .listRowBackground(Color.clear)
+                if let lastLogged {
+                    HStack {
+                        PKCallout(status: .info, message: "Logged \(Format.grams(lastLogged)).")
+                        Spacer(minLength: PK.Spacing.sm)
+                        Button("Undo") { undoLog() }
+                            .font(.subheadline.weight(.semibold))
+                    }
+                }
+            } header: {
+                Text("Log Use")
+            } footer: {
+                Text("Subtracts from this spool's current weight and queues the change for sync.")
             }
 
             // MARK: Status
@@ -256,11 +265,13 @@ struct SpoolDetailView: View {
                 PhotoStripView(photoDatas: $spool.photoDatas)
             }
             Section("Notes") {
-                TextEditor(text: $spool.notes)
-                    .frame(minHeight: 70)
+                TextField("Anything worth remembering about this spool",
+                          text: $spool.notes, axis: .vertical)
+                    .lineLimit(3...)
             }
         }
         .navigationTitle(spool.displayName)
+        .pkDismissableKeyboard()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -288,6 +299,61 @@ struct SpoolDetailView: View {
         .sheet(isPresented: $showNFCWrite) {
             NavigationStack { NFCWriteFlowView(prefilledSpool: spool) }
         }
+        .alert("Log \(Format.grams(gramsUsed))?", isPresented: $confirmLargeUse) {
+            Button("Log Use") { commitLog() }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("That is most of what is left. \(spool.displayName) would drop to \(Format.grams(max(spool.currentWeightG - gramsUsed, 0))).")
+        }
+        .onDisappear { undoTimer?.cancel() }
+    }
+
+    // MARK: - Use logging
+    //
+    // Logging permanently reduces a tracked weight, so a large entry asks
+    // first and every entry stays reversible for a few seconds afterwards.
+
+    private func attemptLog() {
+        guard gramsUsed > 0 else { return }
+        PKKeyboard.dismiss()
+        if spool.currentWeightG > 0 && gramsUsed > spool.currentWeightG / 2 {
+            confirmLargeUse = true
+        } else {
+            commitLog()
+        }
+    }
+
+    private func commitLog() {
+        let amount = gramsUsed
+        guard amount > 0 else { return }
+        spool.currentWeightG = max(spool.currentWeightG - amount, 0)
+        spool.lastUsedDate = Date()
+        enqueueDelta(-amount)
+        gramsUsed = 0
+        Haptics.success()
+
+        withAnimation { lastLogged = amount }
+        undoTimer?.cancel()
+        undoTimer = Task {
+            try? await Task.sleep(for: .seconds(10))
+            guard !Task.isCancelled else { return }
+            await MainActor.run { withAnimation { lastLogged = nil } }
+        }
+    }
+
+    private func undoLog() {
+        guard let amount = lastLogged else { return }
+        spool.currentWeightG += amount
+        enqueueDelta(amount)
+        undoTimer?.cancel()
+        withAnimation { lastLogged = nil }
+        Haptics.light()
+    }
+
+    private func enqueueDelta(_ grams: Double) {
+        SyncEngine.shared.enqueue(.init(id: UUID(), kind: .filamentDelta, entity: "spools",
+                                        recordID: spool.id, payload: nil,
+                                        deltaGrams: grams, queuedAt: Date()))
     }
 }
 

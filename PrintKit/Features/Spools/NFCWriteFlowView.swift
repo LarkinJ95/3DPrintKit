@@ -125,7 +125,7 @@ struct NFCWriteFlowView: View {
         switch nfc.state {
         case .complete: return "checkmark.circle.fill"
         case .failed: return "exclamationmark.circle.fill"
-        case .writing: return "pencil.and.radiowaves.left.and.right"
+        case .writing: return "pencil.circle"
         case .verifying: return "magnifyingglass.circle"
         default: return "wave.3.right.circle"
         }

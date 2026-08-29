@@ -154,26 +154,15 @@ struct PrintQueueFormView: View {
                 Stepper("Priority: \(priority == 0 ? "Normal" : "P\(priority)")", value: $priority, in: 0...5)
             }
             Section("Estimates") {
-                HStack {
-                    Text("Filament needed")
-                    Spacer()
-                    TextField("0", value: $gramsRequired, format: .number)
-                        .keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 90)
-                    Text("g").foregroundStyle(.secondary)
-                }
-                HStack {
-                    Text("Estimated time")
-                    Spacer()
-                    TextField("0", value: $estimatedMinutes, format: .number)
-                        .keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 90)
-                    Text("min").foregroundStyle(.secondary)
-                }
+                PKNumericField(label: "Filament needed", value: $gramsRequired, unit: "g")
+                PKNumericField(label: "Estimated time", value: $estimatedMinutes, unit: "min")
             }
             Section("Notes") {
                 TextEditor(text: $notes).frame(minHeight: 70)
             }
         }
         .navigationTitle(item == nil ? "Queue Print" : "Edit Queue Item")
+        .pkDismissableKeyboard()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }

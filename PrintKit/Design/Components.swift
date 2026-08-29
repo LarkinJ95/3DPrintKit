@@ -1,39 +1,113 @@
 import SwiftUI
+import PhotosUI
 
-// MARK: - Status badge (icon + text; status never shown by color alone)
+// MARK: - Keyboard dismissal
+//
+// The numeric keypads have no return key, so a field that opens one can only
+// be left by tapping elsewhere. Every screen with a numeric field applies
+// `.pkDismissableKeyboard()` once, which installs a single Done button.
+
+enum PKKeyboard {
+    static func dismiss() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder),
+                                        to: nil, from: nil, for: nil)
+    }
+}
+
+extension View {
+    /// Adds a Done button above the keyboard and lets a scroll drag dismiss it.
+    /// Apply once per screen, on the `Form` or `List` itself.
+    func pkDismissableKeyboard() -> some View {
+        self
+            .scrollDismissesKeyboard(.interactively)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { PKKeyboard.dismiss() }
+                        .fontWeight(.semibold)
+                }
+            }
+    }
+}
+
+// MARK: - Numeric field row
+//
+// Replaces the hand-built `HStack { Text; Spacer; TextField.frame(width:) }`
+// pattern. `LabeledContent` sizes the field itself and reflows to a stacked
+// layout at accessibility text sizes instead of truncating.
+
+struct PKNumericField: View {
+    let label: String
+    @Binding var value: Double
+    var unit: String? = nil
+    var placeholder: String = "0"
+    var keyboard: UIKeyboardType = .decimalPad
+
+    var body: some View {
+        LabeledContent(label) {
+            HStack(spacing: 4) {
+                TextField(placeholder, value: $value, format: .number)
+                    .keyboardType(keyboard)
+                    .multilineTextAlignment(.trailing)
+                    .monospacedDigit()
+                    .foregroundStyle(.primary)
+                if let unit {
+                    Text(unit)
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+        .accessibilityLabel(unit.map { "\(label), in \($0)" } ?? label)
+    }
+}
+
+// MARK: - Status badge
+//
+// The label is drawn at full contrast and the hue is carried by the symbol.
+// Tinting caption-size text with a system semantic color over a 12% wash of
+// the same color lands near 2:1 — well under the 4.5:1 minimum.
 
 struct StatusBadge: View {
     let status: PKStatus
     var text: String? = nil
 
     var body: some View {
-        Label(text ?? status.label, systemImage: status.systemImage)
-            .font(.caption.weight(.medium))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .foregroundStyle(status.color)
-            .background(status.color.opacity(0.12), in: RoundedRectangle(cornerRadius: PK.Radius.chip))
-            .accessibilityLabel("Status: \(text ?? status.label)")
+        HStack(spacing: 4) {
+            Image(systemName: status.systemImage)
+                .font(.caption2)
+                .foregroundStyle(status.color)
+            Text(text ?? status.label)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.primary)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(status.color.opacity(0.14), in: Capsule())
+        .overlay(Capsule().strokeBorder(status.color.opacity(0.22), lineWidth: 0.5))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Status: \(text ?? status.label)")
     }
 }
 
-// MARK: - Section card (used only when meaningful grouping exists)
+// MARK: - Callout (inline advisory inside a list or card)
 
-struct SectionCard<Content: View>: View {
-    var title: String? = nil
-    @ViewBuilder var content: () -> Content
+struct PKCallout: View {
+    let status: PKStatus
+    let message: String
+    var symbol: String? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: PK.Spacing.md) {
-            if let title {
-                Text(title)
-                    .font(.headline)
-            }
-            content()
+        HStack(alignment: .firstTextBaseline, spacing: PK.Spacing.sm) {
+            Image(systemName: symbol ?? status.systemImage)
+                .font(.caption)
+                .foregroundStyle(status.color)
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(PK.Spacing.lg)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: PK.Radius.card))
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -77,6 +151,7 @@ struct MetricView: View {
                 Text(value)
                     .font(.title3.weight(.semibold))
                     .monospacedDigit()
+                    .contentTransition(.numericText())
                     .foregroundStyle(valueColor)
                 if let unit {
                     Text(unit)
@@ -97,16 +172,19 @@ struct KeyValueRow: View {
     var source: DataSource? = nil
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
+        LabeledContent {
+            HStack(spacing: PK.Spacing.sm) {
+                if let source {
+                    SourceTag(source: source)
+                }
+                Text(value)
+                    .monospacedDigit()
+                    .multilineTextAlignment(.trailing)
+                    .foregroundStyle(.primary)
+            }
+        } label: {
             Text(key)
                 .foregroundStyle(.secondary)
-            Spacer()
-            if let source {
-                SourceTag(source: source)
-            }
-            Text(value)
-                .monospacedDigit()
-                .multilineTextAlignment(.trailing)
         }
         .font(.subheadline)
     }
@@ -203,14 +281,17 @@ struct SelectableChip: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.subheadline)
-                .padding(.horizontal, 12)
+                .font(.subheadline.weight(isSelected ? .semibold : .regular))
+                .padding(.horizontal, 14)
                 .padding(.vertical, 7)
-                .foregroundStyle(isSelected ? Color.white : Color.primary)
-                .background(isSelected ? Color.accentColor : Color(.secondarySystemFill),
-                            in: RoundedRectangle(cornerRadius: PK.Radius.chip))
+                // `.systemBackground` inverts correctly in both appearances
+                // without assuming anything about the accent's luminance.
+                .foregroundStyle(isSelected ? Color(.systemBackground) : Color.primary)
+                .background(isSelected ? Color.accentColor : Color(.secondarySystemFill), in: Capsule())
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        .animation(.snappy(duration: 0.2), value: isSelected)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
@@ -293,5 +374,3 @@ struct PhotoStripView: View {
         }
     }
 }
-
-import PhotosUI
