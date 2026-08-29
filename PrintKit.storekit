@@ -1,0 +1,88 @@
+{
+  "identifier": "28E6F2BB-24FC-4603-959E-4F22987E86BB",
+  "nonRenewingSubscriptions": [],
+  "products": [
+    {
+      "displayPrice": "49.99",
+      "familyShareable": false,
+      "internalID": "EE10342E-BBDA-4349-9D10-4C8BBAEB297E",
+      "localizations": [
+        {
+          "description": "Everything in Pro, permanently. No renewal.",
+          "displayName": "3dPrintKit Pro Lifetime",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.3dprintkit.pro.lifetime",
+      "referenceName": "3dPrintKit Pro Founder's Lifetime",
+      "type": "NonConsumable"
+    }
+  ],
+  "settings": {
+    "_applicationInternalID": "",
+    "_developerTeamID": "",
+    "_failTransactionsEnabled": false,
+    "_lastSynchronizedDate": 0,
+    "_locale": "en_US",
+    "_storefront": "USA",
+    "_storeKitErrors": []
+  },
+  "subscriptionGroups": [
+    {
+      "id": "314E0EBE-179B-45A0-AB07-028D96072ADC",
+      "localizations": [],
+      "name": "3dPrintKit Pro",
+      "subscriptions": [
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "24.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "498F7880-665E-4055-8273-A507E87CD6B3",
+          "introductoryOffer": {
+            "internalID": "77E5D9B1-9781-4AED-90A4-88BC992423F5",
+            "paymentMode": "free",
+            "subscriptionPeriod": "P1W"
+          },
+          "localizations": [
+            {
+              "description": "Unlimited spools, cloud sync, and Desktop",
+              "displayName": "3dPrintKit Pro Annual",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "com.3dprintkit.pro.annual",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "3dPrintKit Pro Annual",
+          "subscriptionGroupID": "314E0EBE-179B-45A0-AB07-028D96072ADC",
+          "type": "RecurringSubscription"
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "2.99",
+          "familyShareable": false,
+          "groupNumber": 2,
+          "internalID": "DB691561-7732-4DC7-952C-395DEE31C15B",
+          "localizations": [
+            {
+              "description": "Unlimited spools, cloud sync, and Desktop",
+              "displayName": "3dPrintKit Pro Monthly",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "com.3dprintkit.pro.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "3dPrintKit Pro Monthly",
+          "subscriptionGroupID": "314E0EBE-179B-45A0-AB07-028D96072ADC",
+          "type": "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version": {
+    "major": 3,
+    "minor": 0
+  }
+}

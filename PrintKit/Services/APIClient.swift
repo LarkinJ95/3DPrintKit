@@ -7,10 +7,17 @@ import Foundation
 /// surface reports itself as unavailable rather than simulating anything.
 struct PrintKitAPIConfiguration {
     /// Default deployed Worker URL. It can be overridden in Settings → Sync.
-    static let defaultBaseURL = "https://printkit-api.jlarkin-e6e.workers.dev"
+    static let defaultBaseURL = "https://api.3dprintkit.app"
+    private static let legacyDefaultBaseURLs = [
+        "https://printkit-api.jlarkin-e6e.workers.dev"
+    ]
 
     static var baseURL: URL? {
         let stored = UserDefaults.standard.string(forKey: "apiBaseURL") ?? defaultBaseURL
+        if legacyDefaultBaseURLs.contains(stored) {
+            UserDefaults.standard.set(defaultBaseURL, forKey: "apiBaseURL")
+            return URL(string: defaultBaseURL)
+        }
         guard !stored.isEmpty else { return nil }
         return URL(string: stored)
     }

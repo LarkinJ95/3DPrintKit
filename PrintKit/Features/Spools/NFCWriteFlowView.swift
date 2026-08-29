@@ -22,8 +22,54 @@ struct NFCWriteFlowView: View {
     @State private var canvasFormat = false
     @State private var nfc = NFCManager()
     @State private var verified = false
+    @Environment(EntitlementService.self) private var entitlements
+    @State private var showPaywall = false
 
     var body: some View {
+        // Writing tags is Pro. Reading them is not, and nothing about an
+        // ordinary scan is interrupted by this — see docs/product-plan.md §11.
+        if !entitlements.can(.canWriteNFC) {
+            writeIsPro
+        } else {
+            writeFlow
+        }
+    }
+
+    /// Shown in place of the flow, rather than as an interruption on top of it.
+    private var writeIsPro: some View {
+        VStack(spacing: PK.Spacing.lg) {
+            Spacer()
+            Image(systemName: "wave.3.right")
+                .font(.system(size: 44))
+                .foregroundStyle(Color.accentColor)
+            VStack(spacing: PK.Spacing.sm) {
+                Text(FeatureKey.nfcWrite.title)
+                    .font(.title2.weight(.semibold))
+                Text(FeatureKey.nfcWrite.explanation)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Label("Included with 3dPrintKit Pro", systemImage: "checkmark.seal")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(Color.accentColor)
+            Button("View Pro") { showPaywall = true }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            Text("Reading spool tags stays free — scanning always works.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(PK.Spacing.xl)
+        .navigationTitle("Write NFC Tag")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showPaywall) { PaywallView(source: .contextual) }
+        .onAppear { SubscriptionAnalytics.log(.featureAttempted(key: FeatureKey.nfcWrite.rawValue)) }
+    }
+
+    private var writeFlow: some View {
         Group {
             switch step {
             case .selectSpool:

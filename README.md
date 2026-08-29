@@ -19,7 +19,7 @@ tracking, projects, and print analytics.
 3. Select the **PrintKit** scheme (top toolbar) and any iOS 17+ simulator or device.
 4. In the project editor → **PrintKit** target → *Signing & Capabilities*,
    pick your **Development Team**. The project uses **automatic signing** with
-   the team left intentionally unset; the bundle ID is `com.printkit.app`
+   the team left intentionally unset; the bundle ID is `com.3dprintkit.app`
    (change it if your account requires a unique ID — also update the widget
    target to `<your-id>.widgets`).
 5. Press **Run** (⌘R). No other setup is required — the app works fully
@@ -94,7 +94,8 @@ is always bundled — reference values, labeled, never fabricated.
 
 The app is fully functional offline. For multi-device sync, deploy the
 Cloudflare backend in `../../backend` (see its README), then in the app:
-**Settings → Sync & Account → API base URL**, and sign in with Apple.
+**Settings → Sync & Account → API base URL**, and sign in with Apple. The
+production default is `https://api.3dprintkit.app`.
 Session tokens live only in the Keychain; sync is delta-based, cursor-paged,
 and survives offline use via a persistent operation journal.
 

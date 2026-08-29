@@ -3,6 +3,17 @@ import SwiftData
 
 struct GarageHomeView: View {
     @Query private var printers: [PrinterDevice]
+    @Environment(EntitlementService.self) private var entitlements
+    @State private var upgrade = UpgradePrompt()
+    @State private var showAddPrinter = false
+
+    /// Free keeps one saved printer. Existing printers are never affected —
+    /// only adding another is gated.
+    private func addPrinter() {
+        upgrade.attempt(entitlements.canCreate(.printers, existing: printers.count)) {
+            showAddPrinter = true
+        }
+    }
 
     var body: some View {
         List {
@@ -12,9 +23,16 @@ struct GarageHomeView: View {
                         PrinterStatusRow(printer: printer)
                     }
                 }
-                NavigationLink { PrinterFormView(printer: nil) } label: {
-                    Label("Add Printer", systemImage: "plus.circle")
+                Button { addPrinter() } label: {
+                    HStack {
+                        Label("Add Printer", systemImage: "plus.circle")
+                        if case .limited = entitlements.quota(for: .printers) {
+                            Spacer()
+                            ProBadge()
+                        }
+                    }
                 }
+                .buttonStyle(.plain)
             }
             Section {
                 NavigationLink(value: PushDestination.readiness) {
@@ -36,6 +54,10 @@ struct GarageHomeView: View {
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Garage")
+        .sheet(isPresented: $showAddPrinter) {
+            NavigationStack { PrinterFormView(printer: nil) }
+        }
+        .upgradePrompt(upgrade)
     }
 }
 

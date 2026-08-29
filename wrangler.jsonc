@@ -2,6 +2,9 @@
   "name": "printkit-api",
   "main": "backend/src/index.ts",
   "compatibility_date": "2026-08-28",
+  "routes": [
+    { "pattern": "api.3dprintkit.app", "custom_domain": true }
+  ],
   "d1_databases": [
     {
       "binding": "DB",
@@ -18,6 +21,7 @@
   ],
   "vars": {
     "APPLE_IOS_CLIENT_ID": "com.3dprintkit.app",
-    "APPLE_WEB_CLIENT_ID": "com.3dprintkit.web"
+    "APPLE_WEB_CLIENT_ID": "com.3dprintkit.web",
+    "WEB_ORIGIN": "https://3dprintkit.app"
   }
 }

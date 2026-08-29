@@ -14,5 +14,7 @@
 		<string>PACE</string>
 		<string>TAG</string>
 	</array>
+	<key>com.apple.developer.storekit.custom-purchase-link.allowed-regions</key>
+	<array/>
 </dict>
 </plist>

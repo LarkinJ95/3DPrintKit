@@ -14,6 +14,8 @@ struct SpoolListView: View {
     @State private var showScanner = false
     @State private var spoolToDelete: Spool?
     @State private var linkedSpool: Spool?
+    @State private var upgrade = UpgradePrompt()
+    @Environment(EntitlementService.self) private var entitlements
 
     private var activeDryingSpoolIDs: Set<UUID> {
         Set(sessions.filter(\.isActive).compactMap { $0.spool?.id })
@@ -44,6 +46,14 @@ struct SpoolListView: View {
         spools.reduce(0) { $0 + $1.currentWeightG }
     }
 
+    /// Creating a spool is the only thing the quota gates. Every spool already
+    /// in the list stays fully readable and editable whatever the plan says.
+    private func addSpool() {
+        upgrade.attempt(entitlements.canCreate(.spools, existing: allSpools.count)) {
+            showAddSpool = true
+        }
+    }
+
     var body: some View {
         Group {
             if allSpools.isEmpty {
@@ -51,7 +61,7 @@ struct SpoolListView: View {
                              title: "No Spools Yet",
                              message: "Add a spool to track filament, drying, prints, and NFC tags.",
                              actionTitle: "Add Spool") {
-                    showAddSpool = true
+                    addSpool()
                 }
             } else {
                 list
@@ -64,7 +74,7 @@ struct SpoolListView: View {
                     Image(systemName: "wave.3.right")
                 }
                 .accessibilityLabel("Scan spool tag")
-                Button { showAddSpool = true } label: {
+                Button { addSpool() } label: {
                     Image(systemName: "plus")
                 }
                 .accessibilityLabel("Add spool")
@@ -73,6 +83,7 @@ struct SpoolListView: View {
         .sheet(isPresented: $showAddSpool) {
             NavigationStack { SpoolFormView(spool: nil) }
         }
+        .upgradePrompt(upgrade)
         .sheet(isPresented: $showScanner) {
             NavigationStack { NFCScanView() }
         }

@@ -1,4 +1,4 @@
-interface Env { DB: D1Database; PHOTOS: R2Bucket; JWT_SECRET: string; APPLE_IOS_CLIENT_ID: string; APPLE_WEB_CLIENT_ID: string }
+interface Env { DB: D1Database; PHOTOS: R2Bucket; JWT_SECRET: string; APPLE_IOS_CLIENT_ID: string; APPLE_WEB_CLIENT_ID: string; WEB_ORIGIN: string }
 type Payload = Record<string, unknown>;
 type SyncRecordRow = { entity: string; record_id: string; payload: string | null; deleted: number; version: number; updated_at: string };
 
@@ -6,7 +6,7 @@ const encoder = new TextEncoder();
 const b64 = (data: Uint8Array) => btoa(String.fromCharCode(...data)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const ub64 = (value: string) => Uint8Array.from(atob(value.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
 const now = () => new Date().toISOString();
-const corsHeaders = { "Access-Control-Allow-Origin": "https://printkit-web.jlarkin-e6e.workers.dev", "Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS, DELETE" };
+const corsHeaders = { "Access-Control-Allow-Origin": "https://3dprintkit.app", "Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS", Vary: "Origin" };
 const json = (data: unknown, status = 200) => Response.json({ success: status < 400, data: status < 400 ? data : null, error: status < 400 ? null : data, request_id: crypto.randomUUID(), server_time: now() }, { status, headers: corsHeaders });
 const error = (message: string, status = 400, code = "bad_request") => json({ code, message }, status);
 const cookie = (request: Request, name: string) => request.headers.get("Cookie")?.split(";").map(item => item.trim()).find(item => item.startsWith(`${name}=`))?.slice(name.length + 1) ?? null;
@@ -120,6 +120,138 @@ async function sync(request: Request, env: Env, userID: string) {
   }
   return json({ accepted, rejected });
 }
+
+const ENTITY_NAMES = new Set(["spools", "printers", "profiles", "prints", "projects", "transfers", "maintenance"]);
+
+function decodeRecord(row: SyncRecordRow): Payload {
+  try {
+    const payload = JSON.parse(row.payload ?? "{}") as Payload;
+    return { ...payload, id: row.record_id, updated_at: row.updated_at, deleted_at: row.deleted ? row.updated_at : null };
+  } catch {
+    return { id: row.record_id, updated_at: row.updated_at, deleted_at: row.deleted ? row.updated_at : null };
+  }
+}
+
+async function nextVersion(env: Env): Promise<number> {
+  const row = await env.DB.prepare("INSERT INTO sync_versions DEFAULT VALUES RETURNING version").first<{ version: number }>();
+  return row?.version ?? 0;
+}
+
+async function readRecord(env: Env, userID: string, entity: string, recordID: string) {
+  return env.DB.prepare(
+    "SELECT entity, record_id, payload, deleted, version, updated_at FROM sync_records WHERE user_id = ? AND entity = ? AND record_id = ?",
+  ).bind(userID, entity, recordID).first<SyncRecordRow>();
+}
+
+async function writeRecord(env: Env, userID: string, entity: string, recordID: string, payload: Payload | null, deleted = false): Promise<void> {
+  const version = await nextVersion(env);
+  const updatedAt = now();
+  await env.DB.prepare(
+    "INSERT INTO sync_records (user_id, entity, record_id, payload, deleted, version, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, entity, record_id) DO UPDATE SET payload = excluded.payload, deleted = excluded.deleted, version = excluded.version, updated_at = excluded.updated_at",
+  ).bind(userID, entity, recordID, payload ? JSON.stringify({ ...payload, id: recordID }) : null, deleted ? 1 : 0, version, updatedAt).run();
+}
+
+async function entityApi(request: Request, env: Env, userID: string, entity: string, recordID?: string): Promise<Response> {
+  if (!ENTITY_NAMES.has(entity)) return error("Route not found.", 404, "not_found");
+  if (request.method === "GET" && !recordID) {
+    const rows = await env.DB.prepare(
+      "SELECT entity, record_id, payload, deleted, version, updated_at FROM sync_records WHERE user_id = ? AND entity = ? AND deleted = 0 ORDER BY updated_at DESC",
+    ).bind(userID, entity).all<SyncRecordRow>();
+    return json(rows.results.map(decodeRecord));
+  }
+  if (request.method === "POST" && !recordID) {
+    const body = await request.json() as Payload;
+    const id = typeof body.id === "string" && body.id ? body.id : crypto.randomUUID();
+    await writeRecord(env, userID, entity, id, body);
+    return json({ id }, 201);
+  }
+  if (request.method === "PATCH" && recordID) {
+    const current = await readRecord(env, userID, entity, recordID);
+    if (!current || current.deleted) return error("Record not found.", 404, "not_found");
+    const patch = await request.json() as Payload;
+    await writeRecord(env, userID, entity, recordID, { ...decodeRecord(current), ...patch, id: recordID });
+    return json({ id: recordID });
+  }
+  if (request.method === "DELETE" && recordID) {
+    const current = await readRecord(env, userID, entity, recordID);
+    if (!current || current.deleted) return error("Record not found.", 404, "not_found");
+    await writeRecord(env, userID, entity, recordID, null, true);
+    return json({ deleted: recordID });
+  }
+  return error("Route not found.", 404, "not_found");
+}
+
+async function completePrintApi(request: Request, env: Env, userID: string): Promise<Response> {
+  const body = await request.json() as Payload;
+  const printID = typeof body.print_id === "string" ? body.print_id : "";
+  const spoolID = typeof body.spool_id === "string" ? body.spool_id : "";
+  const grams = typeof body.grams_used === "number" && Number.isFinite(body.grams_used) ? body.grams_used : NaN;
+  if (!printID || !spoolID || !Number.isFinite(grams) || grams <= 0) return error("A print, spool, and positive filament amount are required.");
+  const spoolRow = await readRecord(env, userID, "spools", spoolID);
+  if (!spoolRow || spoolRow.deleted) return error("Spool not found.", 404, "not_found");
+  const spool = decodeRecord(spoolRow);
+  const currentWeight = numberValue(spool.current_weight_g, numberValue(spool.remainingWeight, 0));
+  const timestamp = now();
+  await writeRecord(env, userID, "prints", printID, {
+    id: printID, name: typeof body.name === "string" ? body.name : "", spool_id: spoolID,
+    printer_id: typeof body.printer_id === "string" ? body.printer_id : null,
+    profile_id: typeof body.profile_id === "string" ? body.profile_id : null,
+    project_id: typeof body.project_id === "string" ? body.project_id : null,
+    material_id: typeof spool.material_id === "string" ? spool.material_id : "",
+    date: timestamp, duration_minutes: numberValue(body.duration_minutes, 0), grams_used: grams,
+    success: body.success !== false, category: typeof body.category === "string" ? body.category : "Final Part",
+    cost: numberValue(body.cost, 0), notes: typeof body.notes === "string" ? body.notes : "",
+  });
+  await writeRecord(env, userID, "spools", spoolID, { ...spool, current_weight_g: Math.max(0, currentWeight - grams), last_used_date: timestamp });
+  if (typeof body.printer_id === "string" && body.printer_id) {
+    const printerRow = await readRecord(env, userID, "printers", body.printer_id);
+    if (printerRow && !printerRow.deleted) {
+      const printer = decodeRecord(printerRow);
+      await writeRecord(env, userID, "printers", body.printer_id, { ...printer, total_print_hours: numberValue(printer.total_print_hours, 0) + numberValue(body.duration_minutes, 0) / 60 });
+    }
+  }
+  return json({ print_id: printID }, 201);
+}
+
+async function transferApi(request: Request, env: Env, userID: string): Promise<Response> {
+  const body = await request.json() as Payload;
+  const transferID = typeof body.transfer_id === "string" ? body.transfer_id : "";
+  const spoolID = typeof body.spool_id === "string" ? body.spool_id : "";
+  const spoolRow = spoolID ? await readRecord(env, userID, "spools", spoolID) : null;
+  if (!transferID || !spoolRow || spoolRow.deleted) return error("A valid transfer and spool are required.", 404, "not_found");
+  const spool = decodeRecord(spoolRow);
+  const toLocation = typeof body.to_location_id === "string" ? body.to_location_id : null;
+  const slot = typeof body.ams_slot_label === "string" ? body.ams_slot_label : undefined;
+  await writeRecord(env, userID, "spools", spoolID, { ...spool, storage_location_id: toLocation, ...(slot === undefined ? {} : { ams_slot_label: slot }) });
+  await writeRecord(env, userID, "transfers", transferID, {
+    id: transferID, spool_id: spoolID,
+    from_location_id: typeof body.from_location_id === "string" ? body.from_location_id : null,
+    to_location_id: toLocation, date: now(), notes: typeof body.notes === "string" ? body.notes : "",
+  });
+  return json({ transfer_id: transferID }, 201);
+}
+
+async function amsReassignApi(request: Request, env: Env, userID: string): Promise<Response> {
+  const body = await request.json() as { printer_id?: string; assignments?: Array<{ slot_label?: string; spool_id?: string | null }> };
+  if (!body.printer_id || !Array.isArray(body.assignments)) return error("A printer and assignments are required.");
+  const printer = await readRecord(env, userID, "printers", body.printer_id);
+  if (!printer || printer.deleted) return error("Printer not found.", 404, "not_found");
+  const assignments = body.assignments.filter((item) => typeof item.slot_label === "string" && item.slot_label.length > 0);
+  const labels = new Set(assignments.map((item) => item.slot_label as string));
+  const requested = new Map(assignments.filter((item) => item.spool_id).map((item) => [item.spool_id as string, item.slot_label as string]));
+  const rows = await env.DB.prepare(
+    "SELECT entity, record_id, payload, deleted, version, updated_at FROM sync_records WHERE user_id = ? AND entity = 'spools' AND deleted = 0",
+  ).bind(userID).all<SyncRecordRow>();
+  const known = new Set(rows.results.map((row) => row.record_id));
+  if ([...requested.keys()].some((id) => !known.has(id))) return error("One or more assigned spools were not found.", 404, "not_found");
+  for (const row of rows.results) {
+    const spool = decodeRecord(row);
+    const current = typeof spool.ams_slot_label === "string" ? spool.ams_slot_label : "";
+    const next = requested.get(row.record_id) ?? (labels.has(current) ? "" : current);
+    if (next !== current) await writeRecord(env, userID, "spools", row.record_id, { ...spool, ams_slot_label: next });
+  }
+  return json({ printer_id: body.printer_id });
+}
 export default { async fetch(request: Request, env: Env): Promise<Response> {
   if (request.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const path = new URL(request.url).pathname;
@@ -144,6 +276,28 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
     if (session) await env.DB.prepare("DELETE FROM web_sessions WHERE session_hash = ?").bind(await digest(session)).run();
     const response = json({}); response.headers.append("Set-Cookie", "pk_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0"); return response;
   }
+  if (path === "/api/v1/auth/logout-all" && request.method === "POST") {
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM refresh_sessions WHERE user_id = ?").bind(userID),
+      env.DB.prepare("DELETE FROM web_sessions WHERE user_id = ?").bind(userID),
+    ]);
+    const response = json({}); response.headers.append("Set-Cookie", "pk_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0"); return response;
+  }
+  if (path === "/api/v1/account" && request.method === "DELETE") {
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM sync_records WHERE user_id = ?").bind(userID),
+      env.DB.prepare("DELETE FROM sync_operations WHERE user_id = ?").bind(userID),
+      env.DB.prepare("DELETE FROM refresh_sessions WHERE user_id = ?").bind(userID),
+      env.DB.prepare("DELETE FROM web_sessions WHERE user_id = ?").bind(userID),
+      env.DB.prepare("DELETE FROM users WHERE id = ?").bind(userID),
+    ]);
+    const response = json({}); response.headers.append("Set-Cookie", "pk_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0"); return response;
+  }
   if (path === "/api/v1/sync" && (request.method === "GET" || request.method === "POST")) return sync(request, env, userID);
+  if (path === "/api/v1/ops/complete-print" && request.method === "POST") return completePrintApi(request, env, userID);
+  if (path === "/api/v1/ops/transfer" && request.method === "POST") return transferApi(request, env, userID);
+  if (path === "/api/v1/ops/ams-reassign" && request.method === "POST") return amsReassignApi(request, env, userID);
+  const entityMatch = path.match(/^\/api\/v1\/(spools|printers|profiles|prints|projects|transfers|maintenance)(?:\/([^/]+))?$/);
+  if (entityMatch) return entityApi(request, env, userID, entityMatch[1] as string, entityMatch[2]);
   return error("Route not found.", 404, "not_found");
 } } satisfies ExportedHandler<Env>;

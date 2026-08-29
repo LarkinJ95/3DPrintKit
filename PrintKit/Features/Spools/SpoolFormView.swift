@@ -202,9 +202,9 @@ struct SpoolFormView: View {
 
         if spool == nil {
             context.insert(target)
-            SyncEngine.shared.enqueue(.init(id: UUID(), kind: .create, entity: "spools",
-                                            recordID: target.id, payload: try? SpoolTagPayload(spool: target).encode(),
-                                            deltaGrams: nil, queuedAt: Date()))
+            SyncEngine.shared.enqueueSpool(target, kind: .create)
+        } else {
+            SyncEngine.shared.enqueueSpool(target, kind: .update)
         }
         Haptics.success()
         dismiss()

@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "3AD089AF3FEC36FF2B6154E4"
-			   BuildableName = "3DPrintKit.app"
+               BuildableName = "3DPrintKit.app"
                BlueprintName = "PrintKit"
                ReferencedContainer = "container:PrintKit.xcodeproj">
             </BuildableReference>
@@ -29,7 +29,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "E8AF0E21D8DDA3B1578032E8"
-			   BuildableName = "3DPrintKitWidgets.appex"
+               BuildableName = "3DPrintKitWidgets.appex"
                BlueprintName = "PrintKitWidgets"
                ReferencedContainer = "container:PrintKit.xcodeproj">
             </BuildableReference>
@@ -74,17 +74,22 @@
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"
-      allowLocationSimulation = "YES">
+      allowLocationSimulation = "YES"
+      consoleMode = "0"
+      structuredConsoleMode = "1">
       <BuildableProductRunnable
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "3AD089AF3FEC36FF2B6154E4"
-			BuildableName = "3DPrintKit.app"
+            BuildableName = "3DPrintKit.app"
             BlueprintName = "PrintKit"
             ReferencedContainer = "container:PrintKit.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <StoreKitConfigurationFileReference
+         identifier = "../../PrintKit.storekit">
+      </StoreKitConfigurationFileReference>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
@@ -97,7 +102,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "3AD089AF3FEC36FF2B6154E4"
-			BuildableName = "3DPrintKit.app"
+            BuildableName = "3DPrintKit.app"
             BlueprintName = "PrintKit"
             ReferencedContainer = "container:PrintKit.xcodeproj">
          </BuildableReference>

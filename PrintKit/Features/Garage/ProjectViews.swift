@@ -6,12 +6,22 @@ import PhotosUI
 
 struct ProjectListView: View {
     @Query(sort: \ProjectItem.createdAt, order: .reverse) private var projects: [ProjectItem]
+    @Environment(EntitlementService.self) private var entitlements
+    @State private var upgrade = UpgradePrompt()
     @State private var showAdd = false
     @State private var filter: ProjectStatus?
 
     private var filtered: [ProjectItem] {
         guard let filter else { return projects }
         return projects.filter { $0.status == filter }
+    }
+
+    /// Projects are Pro at launch (quota 0). Existing projects — from a lapsed
+    /// subscription — remain fully readable and editable.
+    private func addProject() {
+        upgrade.attempt(entitlements.canCreate(.projects, existing: projects.count)) {
+            showAdd = true
+        }
     }
 
     var body: some View {
@@ -38,7 +48,7 @@ struct ProjectListView: View {
                 PKEmptyState(symbol: "folder",
                              title: filter == nil ? "No Projects Yet" : "No \(filter!.displayName) Projects",
                              message: "Group prints, parts, and hardware into a project with its own bill of materials and cost roll-up.",
-                             actionTitle: "New Project") { showAdd = true }
+                             actionTitle: "New Project") { addProject() }
             }
 
             ForEach(filtered) { project in
@@ -67,8 +77,9 @@ struct ProjectListView: View {
             .onDelete(perform: delete)
         }
         .navigationTitle("Projects")
-        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { showAdd = true } label: { Image(systemName: "plus") } } }
+        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { addProject() } label: { Image(systemName: "plus") } } }
         .sheet(isPresented: $showAdd) { NavigationStack { ProjectFormView(project: nil) } }
+        .upgradePrompt(upgrade)
     }
 
     private func statusBadge(_ status: ProjectStatus) -> PKStatus {

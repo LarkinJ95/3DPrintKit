@@ -35,10 +35,28 @@ struct SettingsView: View {
     @State private var showEraseConfirm = false
     @State private var showSampleConfirm = false
     @State private var apiURL: String = UserDefaults.standard.string(forKey: "apiBaseURL") ?? PrintKitAPIConfiguration.defaultBaseURL
+    @Environment(EntitlementService.self) private var entitlements
 
     var body: some View {
         @Bindable var settings = settings
         Form {
+            // MARK: 3dPrintKit Pro
+            Section {
+                NavigationLink { ProSettingsView() } label: {
+                    HStack {
+                        Label("3dPrintKit Pro", systemImage: "sparkles")
+                        Spacer()
+                        Text(entitlements.planTitle.replacingOccurrences(of: "3dPrintKit Pro — ", with: ""))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } footer: {
+                Text(entitlements.isPro
+                     ? "Thank you for supporting 3dPrintKit."
+                     : "Free includes the material database, every calculator, and a small inventory — with no ads.")
+            }
+
             // MARK: Account & Sync
             Section {
                 switch auth.state {

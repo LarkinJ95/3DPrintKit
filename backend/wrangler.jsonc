@@ -3,6 +3,9 @@
   "name": "printkit-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-28",
+  "routes": [
+    { "pattern": "api.3dprintkit.app", "custom_domain": true }
+  ],
   "d1_databases": [{
     "binding": "DB",
     "database_name": "printkit-db",
@@ -10,5 +13,9 @@
     "migrations_dir": "migrations"
   }],
   "r2_buckets": [{ "binding": "PHOTOS", "bucket_name": "printkit-photos" }],
-  "vars": { "APPLE_IOS_CLIENT_ID": "com.3dprintkit.app", "APPLE_WEB_CLIENT_ID": "com.3dprintkit.web" }
+  "vars": {
+    "APPLE_IOS_CLIENT_ID": "com.3dprintkit.app",
+    "APPLE_WEB_CLIENT_ID": "com.3dprintkit.web",
+    "WEB_ORIGIN": "https://3dprintkit.app"
+  }
 }
