@@ -223,6 +223,10 @@ final class SyncEngine {
         do {
             try await pushJournal()
             try await pullChanges(context: context)
+            // Pulling a legacy spool can queue its missing colour swatch for
+            // repair. Send that small follow-up batch in the same user-initiated
+            // cycle instead of requiring a second tap of Sync Now.
+            try await pushJournal()
             lastSyncAt = Date()
             Haptics.light()
         } catch let error as APIError {
