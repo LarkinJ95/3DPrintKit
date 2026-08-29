@@ -71,7 +71,15 @@ async function sync(request: Request, env: Env, userID: string) {
 export default { async fetch(request: Request, env: Env): Promise<Response> {
   if (request.method === "OPTIONS") return new Response(null, { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" } });
   const path = new URL(request.url).pathname;
-  if (path === "/" || path === "/health") return json({ service: "3DPrintKit API", status: "ok" });
+  if (path === "/" || path === "/health") {
+    try {
+      const check = await env.DB.prepare("SELECT 1 AS ok").first<{ ok: number }>();
+      if (check?.ok !== 1) throw new Error("Unexpected D1 health-check result.");
+      return json({ service: "3DPrintKit API", status: "ok", database: "ok" });
+    } catch {
+      return error("Database is unavailable.", 503, "database_unavailable");
+    }
+  }
   if (path === "/api/v1/auth/apple" && request.method === "POST") return authApple(request, env);
   const userID = await userFrom(request, env); if (!userID) return error("Authentication required.", 401, "unauthorized");
   if (path === "/api/v1/sync" && (request.method === "GET" || request.method === "POST")) return sync(request, env, userID);
