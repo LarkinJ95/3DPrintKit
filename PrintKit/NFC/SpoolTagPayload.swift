@@ -66,9 +66,9 @@ struct SpoolTagPayload: Codable, Equatable, Identifiable {
         return payload
     }
 
-    /// QR codes carry the same identity as NFC: a 3dprintkit:// URL wrapping the UUID,
+    /// QR codes carry the same identity as NFC: a printkit:// URL wrapping the UUID,
     /// with the JSON payload as fallback for cross-tool readability.
-    var qrString: String { "3dprintkit://spool/\(spoolID.uuidString)" }
+    var qrString: String { "printkit://spool/\(spoolID.uuidString)" }
 
     static func decodeQR(_ string: String) -> UUID? {
         for prefix in ["3dprintkit://spool/", "printkit://spool/"] {
